@@ -1,0 +1,4 @@
+interface:
+  display_name: "Commit Changes"
+  short_description: "Understand local edits and commit them clearly"
+  default_prompt: "Use $commit-changes to inspect and commit my local staged and unstaged changes."

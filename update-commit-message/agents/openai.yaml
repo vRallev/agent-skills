@@ -1,0 +1,4 @@
+interface:
+  display_name: "Update Commit Message"
+  short_description: "Rewrite the HEAD commit message with context"
+  default_prompt: "Use $update-commit-message to improve the message for my latest commit."
