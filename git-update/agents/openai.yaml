@@ -1,0 +1,4 @@
+interface:
+  display_name: "Git Update"
+  short_description: "Safely fetch and update main/master branches"
+  default_prompt: "Use $git-update to safely fetch and update this repository main/master branches."
