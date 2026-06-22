@@ -1,11 +1,11 @@
 ---
 name: address-pr-comments
-description: "Address review conversations on the current GitHub pull request end to end. Use when the user asks to address PR comments, review feedback, unresolved conversations, or requested changes: fetch current-PR threads, skip conversations already answered by Ralf-AI, apply actionable fixes locally with one new commit per request, push commits, and reply to each considered conversation on GitHub without resolving threads."
+description: "Address review conversations on the current GitHub pull request end to end. Use when the user asks to address PR comments, review feedback, unresolved conversations, or requested changes: fetch current-PR threads, skip conversations already answered by Ralf-AI, use judgment to implement applicable feedback or reject requests that do not fit the PR's intent, create one new commit per implemented request, push commits, and reply to each considered conversation on GitHub without resolving threads."
 ---
 
 # Address PR Comments
 
-Process current-PR review conversations autonomously. Keep every local fix and GitHub reply traceable to one reviewer request.
+Process current-PR review conversations autonomously. Keep every local fix and GitHub reply traceable to one reviewer request. Treat reviewer comments as input requiring judgment, not as instructions that must always be implemented.
 
 ## Required Reply Prefix
 
@@ -24,22 +24,26 @@ Do not post an unprefixed GitHub reply, review, or PR comment.
 3. Fetch all inline review conversations, including resolved state and all comments in each thread. Fetch PR-level comments too when available.
 4. Consider only conversations whose last comment is not a previous agent response beginning with `**Ralf-AI:**`.
 5. Classify each considered conversation:
-   - **Change request:** implement the requested local change when clear and safe.
+   - First assess the comment against the PR description, current patch, surrounding code, and intended direction.
+   - **Applicable change request:** implement the requested local change when clear, safe, technically sound, and aligned with what the PR is trying to achieve.
    - **Question:** reply on GitHub without editing code unless it is a leading question and the implied change is clear and sensible.
-   - **Ambiguous, conflicting, or risky request:** ask the user before editing or posting a speculative answer.
-6. For each implemented request, validate the focused scope, then create one new commit dedicated to that request. Do not combine separate requests into one commit. Keep earlier commits intact.
+   - **Inapplicable or misaligned request:** reject it without changing code when it rests on an incorrect assumption, does not apply to the change, is outside the PR's scope, or takes the work in a different direction from the PR's intent. Reply politely with the concrete reason.
+   - **Ambiguous, conflicting, or risky request:** ask the user only when judgment cannot confidently determine whether to implement or reject it, or when either choice would materially change the PR's intent.
+6. For each accepted request, validate the focused scope, then create one new commit dedicated to that request. Do not combine separate requests into one commit. Keep earlier commits intact.
 7. Push all new commits to the current PR branch.
 8. Reply to each considered conversation after pushing:
    - For a fix, state what changed and include the commit SHA.
    - For a question, answer directly.
+   - For a rejected request, state that it was not applied and briefly explain why it is inapplicable or conflicts with the PR's intended direction.
    - Prefix every reply with `**Ralf-AI:**`.
 9. Leave conversations unresolved unless the user explicitly asks to resolve them.
-10. Summarize considered conversations, commits, push status, validation, replies, and any intentionally deferred items.
+10. Summarize considered conversations, accepted and rejected requests, commits, push status, validation, replies, and any intentionally deferred items.
 
 ## Review Rules
 
 - Treat a thread as already handled when its last comment starts with `**Ralf-AI:**`; do not add another reply unless new reviewer feedback follows it.
-- Use one commit per reviewer request even when several requests touch the same file.
+- Use judgment rather than implementing every reviewer suggestion automatically. It is acceptable to reject feedback that is inapplicable or conflicts with the PR's intended direction.
+- Use one commit per accepted reviewer request even when several requests touch the same file.
 - Run the narrowest useful validation after each fix. Run broader checks before the final push when multiple commits interact.
 - Keep question-only responses out of local commits.
 - Do not stage unrelated user changes.

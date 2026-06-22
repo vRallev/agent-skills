@@ -1,6 +1,6 @@
 ---
 name: ready-for-review
-description: Prepare the current pull request for review by fetching the latest default branch, rebasing the local feature branch, squashing its commits into one, improving the combined commit message when needed, force-pushing safely, resolving all review conversations, and preserving the pull request's existing draft status. Use when the user invokes ready-for-review or asks to finalize a pull request into a single review-ready commit.
+description: Prepare the current pull request for review by fetching the latest default branch, rebasing the local feature branch, squashing its commits into one while preserving the oldest feature commit's message unless it is stale or inaccurate, force-pushing safely, resolving all review conversations, and preserving the pull request's existing draft status. Use when the user invokes ready-for-review or asks to finalize a pull request into a single review-ready commit.
 ---
 
 # Ready for Review
@@ -19,11 +19,11 @@ Prepare the current feature branch and its pull request for review. Invoking thi
 5. Rebase the current feature branch onto the chosen remote base. If conflicts occur, resolve them carefully when the intended resolution is clear. Otherwise stop and ask the user.
 6. Find the merge base between the rebased branch and the chosen remote base. Count commits in `<base>..HEAD`.
 7. Squash all feature-branch commits into one when more than one exists:
-   - Save the current tip SHA.
+   - Identify the least recent (oldest) commit in `<base>..HEAD` and save its complete commit message, including its subject and body.
    - Run `git reset --soft <base>`.
-   - Create one commit from the staged combined patch, using the saved tip commit message temporarily.
+   - Create one commit from the staged combined patch using the saved oldest commit message unchanged. For a history of `A -> B -> C (HEAD)`, preserve the message from `A`.
    - Do not use `git reset --hard`.
-8. Inspect the single combined commit. If its message no longer explains the complete change clearly, use the `$update-commit-message` skill at `/Users/ralf/.codex/skills/update-commit-message/SKILL.md`. Treat this ready-for-review invocation as explicit approval to amend the current PR branch commit.
+8. Inspect the single combined commit and compare its preserved message with the resulting change. Update the message only when it is out of date or does not describe the content accurately. In either case, use the `$update-commit-message` skill at `/Users/ralf/.codex/skills/update-commit-message/SKILL.md`; treat this ready-for-review invocation as explicit approval to amend the current PR branch commit. Otherwise preserve the oldest commit message exactly, even if different wording could be clearer or more detailed.
 9. Confirm that the branch contains exactly one commit over the chosen remote base and that the working tree is clean.
 10. Force-push the rewritten branch with lease protection:
 
