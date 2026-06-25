@@ -1,0 +1,4 @@
+interface:
+  display_name: "Snooze"
+  short_description: "Archive a thread and wake it later"
+  default_prompt: "Use $snooze to archive this thread until tomorrow morning."
