@@ -1,0 +1,4 @@
+interface:
+  display_name: "Create or Update PR"
+  short_description: "Create a draft PR or refresh an existing PR"
+  default_prompt: "Use $create-or-update-pr to create or update the pull request for this branch."

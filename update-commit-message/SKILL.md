@@ -22,13 +22,14 @@ Write a concise imperative title followed by a description paragraph or short bu
 
 The description must:
 
-- Explain what changed briefly.
-- Emphasize why the change was needed or what behavior it enables.
+- Explain why the change is important or helpful; prioritize the "why" over the "what".
+- Mention what changed only briefly, as context for understanding the reason.
+- Emphasize the problem solved, behavior enabled, risk reduced, or project/user benefit.
 - Wrap code references, file paths, command names, and identifiers in backticks for Markdown rendering.
 - Omit verification details such as tests, lint, formatting, or build commands.
 
 Use a non-interactive amend command, for example:
 
 ```bash
-git commit --amend -m "Concise imperative title" -m "Explain the change and, more importantly, why it is needed. Wrap references like \`FormatCommand\` in backticks."
+git commit --amend -m "Concise imperative title" -m "Explain why the change is important or helpful. Mention what changed only as needed for context, and wrap references like \`FormatCommand\` in backticks."
 ```

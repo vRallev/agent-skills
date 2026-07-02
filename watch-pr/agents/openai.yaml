@@ -1,4 +1,4 @@
 interface:
   display_name: "Watch PR"
-  short_description: "Monitor PR checks and address review feedback"
-  default_prompt: "Use $watch-pr to monitor this pull request until CI is green and reviewer feedback is handled."
+  short_description: "Monitor PR checks, CI failures, and feedback"
+  default_prompt: "Use $watch-pr to monitor this pull request every minute until CI is green, CI failures are fixed, and reviewer feedback is handled."

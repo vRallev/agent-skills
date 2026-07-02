@@ -1,6 +1,6 @@
 ---
 name: watch-pr
-description: "Monitor a GitHub pull request until every CI check on its current head is successful and reviewer feedback has stopped arriving. Use when the user asks to watch, monitor, babysit, or wait on a PR; repeatedly inspect CI and new review or PR comments, invoke $address-pr-comments for feedback, commit and push reasonable requested changes, politely reject unreasonable requests on GitHub, and continue until the PR is stably green and quiet."
+description: "Monitor a GitHub pull request until every CI check on its current head is successful and reviewer feedback has stopped arriving. Use when the user asks to watch, monitor, babysit, or wait on a PR; poll every minute, address CI failures as they occur, invoke $address-pr-comments for review feedback, use $commit-changes for each individual CI failure fix or accepted reviewer request, push commits, and continue until the PR is stably green and quiet."
 ---
 
 # Watch PR
@@ -20,7 +20,7 @@ Monitor one pull request through CI and review feedback. Do not merge the PR.
 
 ## Monitoring Loop
 
-Use the product's recurring monitoring or wait mechanism when available. Otherwise poll at a five-minute cadence without a tight shell loop.
+Use the product's recurring monitoring or wait mechanism when available. Otherwise poll every minute without a tight shell loop.
 
 On every poll:
 
@@ -29,13 +29,14 @@ On every poll:
 3. When new human-authored feedback exists whose latest reply is not an existing `**Ralf-AI:**` response, run `$address-pr-comments` from `/Users/ralf/.codex/skills/address-pr-comments/SKILL.md` for the PR. Follow all of its safety, commit, validation, push, reply-prefix, and unresolved-thread rules, with the classification rules below.
 4. After `$address-pr-comments` finishes, refresh the head SHA, CI, and comments immediately. Any pushed commit or new comment resets green/quiet confirmation.
 5. Continue waiting while a current-head CI job is missing, queued, pending, in progress, stale, or has any conclusion other than `success`. Do not count skipped, neutral, cancelled, timed-out, or action-required jobs as successful.
-6. Inspect a persistent CI failure enough to identify and report the blocker, but do not make an unsolicited CI-driven code change unless a reviewer request or the user authorizes it. Continue monitoring transient or externally owned failures.
+6. Address CI failures as they occur. Inspect each failing check or job enough to identify the concrete failure, implement the smallest appropriate fix for that individual failure, run focused validation, then use `$commit-changes` from `/Users/ralf/.codex/skills/commit-changes/SKILL.md` to create one commit for that failure before pushing. Keep each individual CI failure fix in its own commit.
+7. If a CI failure is transient, infrastructure-owned, externally blocked, unrelated to the PR, or unsafe to fix without more context, report the blocker and continue monitoring instead of making a speculative change.
 
 ## Feedback Classification
 
 Apply these additions while using `$address-pr-comments`:
 
-- **Reasonable suggestion:** Accept a clear, safe request that improves correctness, reliability, tests, readability, or maintainability without materially expanding the PR. Make one new commit for that request, run focused validation, push it, and reply with the commit SHA.
+- **Reasonable suggestion:** Accept a clear, safe request that improves correctness, reliability, tests, readability, or maintainability without materially expanding the PR. Make one new commit for that request using `$commit-changes`, run focused validation, push it, and reply with the commit SHA.
 - **Unreasonable suggestion:** Reject only when the request is clearly incorrect, irrelevant, duplicative, contrary to verified project constraints, or a disproportionate scope expansion. Make no code change. Post a concise, respectful GitHub reply with the concrete reason and prefix it exactly with `**Ralf-AI:**`.
 - **Ambiguous, conflicting, or risky suggestion:** Do not label uncertainty as unreasonable. Ask the user before editing or posting a speculative answer, as required by `$address-pr-comments`.
 - **Question:** Answer directly on GitHub when the answer is verified. Do not create a commit for a question-only response.
@@ -48,7 +49,7 @@ Finish only when all of these are true for the same current head SHA:
 
 - At least one CI check has been discovered, every discovered CI check and job has completed with conclusion `success`, and no expected or required check is missing.
 - Every observed human review or PR-level comment has been considered by `$address-pr-comments`; the latest reply in each handled conversation is `**Ralf-AI:**` or no reply was needed.
-- Two consecutive full snapshots, at least five minutes apart, have the same head SHA and no new human comments, while CI remains fully successful.
+- Two consecutive full snapshots, at least one minute apart, have the same head SHA and no new human comments, while CI remains fully successful.
 
 If the PR is merged or closed, stop and report that terminal state. If authentication, branch permissions, an ambiguous/risky request, or a permanently failed external check requires owner action, report the exact blocker and required action; do not falsely declare the PR green.
 

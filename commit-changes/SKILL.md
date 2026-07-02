@@ -1,6 +1,6 @@
 ---
 name: commit-changes
-description: Inspect and understand the current Git working tree, then commit its staged and unstaged local changes with a clear title and why-focused description. Use when the user invokes commit-changes or asks to commit the current local work, including when the intent should be reconstructed from the agent conversation and repository context.
+description: Inspect and understand the current Git working tree, then commit its staged and unstaged local changes with a clear title and why-focused description. Use whenever the user asks to commit changes, commit this work, create a git commit, or perform the commit portion of a larger push, pull-request, publish, or yeet workflow. For requests that also ask to push, publish, or create a PR, use this skill first for the commit, then continue with the publishing workflow after the commit exists.
 ---
 
 # Commit Changes
@@ -18,6 +18,7 @@ Commit the current local work with an intentional message.
 7. Stage the local changes that belong to the requested commit, including previously unstaged files.
 8. Review the staged diff and create the commit.
 9. Report the commit SHA, subject, and whether any local changes remain.
+10. If the user's request also includes pushing, publishing, or opening a pull request, stop this skill after the commit report and then continue with the appropriate publishing workflow.
 
 ## Commit Message
 
@@ -25,13 +26,14 @@ Write a concise imperative title followed by a description paragraph or short bu
 
 The description must:
 
-- Explain what changed briefly.
-- Emphasize why the change was needed or what behavior it enables.
+- Explain why the change is important or helpful; prioritize the "why" over the "what".
+- Mention what changed only briefly, as context for understanding the reason.
+- Emphasize the problem solved, behavior enabled, risk reduced, or project/user benefit.
 - Wrap code references, file paths, command names, and identifiers in backticks for Markdown rendering.
 - Omit verification details such as tests, lint, formatting, or build commands.
 
 Use a non-interactive commit command, for example:
 
 ```bash
-git commit -m "Concise imperative title" -m "Explain the change and, more importantly, why it is needed. Wrap references like \`FormatCommand\` in backticks."
+git commit -m "Concise imperative title" -m "Explain why the change is important or helpful. Mention what changed only as needed for context, and wrap references like \`FormatCommand\` in backticks."
 ```
