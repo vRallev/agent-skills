@@ -1,0 +1,4 @@
+interface:
+  display_name: "Git local branches summary"
+  short_description: "Find local branches already integrated upstream"
+  default_prompt: "Use $git-local-branches-summary to refresh this repository and report local branches that can be safely deleted."
