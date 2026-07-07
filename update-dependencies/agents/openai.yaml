@@ -1,0 +1,4 @@
+interface:
+  display_name: "Update dependencies"
+  short_description: "Research, upgrade, publish, and watch dependencies"
+  default_prompt: "Use $update-dependencies to upgrade com.google.android.gms:play-services-location:21.4.0."

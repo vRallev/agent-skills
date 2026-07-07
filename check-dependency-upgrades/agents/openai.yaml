@@ -1,0 +1,4 @@
+interface:
+  display_name: "Check dependency upgrades"
+  short_description: "Audit Gradle catalogs for dependency upgrades"
+  default_prompt: "Use $check-dependency-upgrades to inspect the remote default branch and report all available Gradle dependency updates."
