@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sync custom Codex skills between a Git repo and the personal skills dir."""
+"""Sync custom Codex skills and AGENTS.md with a Git repository."""
 
 from __future__ import annotations
 
@@ -26,6 +26,8 @@ SKIP_DIR_NAMES = {
     "node_modules",
 }
 SKIP_FILE_NAMES = {".DS_Store"}
+REPO_AGENTS_FILE_NAME = "RALF_AGENTS.md"
+PERSONAL_AGENTS_FILE_NAME = "AGENTS.md"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -162,7 +164,7 @@ def latest_repo_commit_ts(repo: Path, rel_path: Path) -> int | None:
     return int(output)
 
 
-def repo_skill_is_dirty(repo: Path, rel_path: Path) -> bool:
+def repo_path_is_dirty(repo: Path, rel_path: Path) -> bool:
     output = run_git(
         repo,
         ["status", "--porcelain", "--", rel_path.as_posix()],
@@ -230,11 +232,99 @@ def replace_tree(source: Path, target: Path, dry_run: bool) -> None:
                 tmp_path.unlink()
 
 
+def replace_file(source: Path, target: Path, dry_run: bool) -> None:
+    if dry_run:
+        return
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    file_descriptor, tmp_name = tempfile.mkstemp(
+        prefix=f".{target.name}.sync-tmp-", dir=target.parent
+    )
+    os.close(file_descriptor)
+    tmp_path = Path(tmp_name)
+
+    try:
+        shutil.copy2(source, tmp_path)
+        tmp_path.replace(target)
+    finally:
+        if os.path.lexists(tmp_path):
+            tmp_path.unlink()
+
+
 def default_home_skills_dir() -> Path:
     codex_home = os.environ.get("CODEX_HOME")
     if codex_home:
         return Path(codex_home).expanduser().resolve() / "skills"
     return Path.home() / ".codex" / "skills"
+
+
+def sync_agents_file(
+    args: argparse.Namespace, repo: Path, home_skills_dir: Path
+) -> tuple[int, int, int, int]:
+    repo_agents = repo / REPO_AGENTS_FILE_NAME
+    if not repo_agents.exists():
+        if args.verbose:
+            print(
+                f"[ignore] personal {PERSONAL_AGENTS_FILE_NAME}: repository "
+                f"has no {REPO_AGENTS_FILE_NAME}"
+            )
+        return 0, 0, 0, 0
+
+    if not repo_agents.is_file():
+        raise ValueError(f"Repository path is not a file: {repo_agents}")
+
+    personal_agents = home_skills_dir.parent / PERSONAL_AGENTS_FILE_NAME
+    rel_path = Path(REPO_AGENTS_FILE_NAME)
+
+    if not personal_agents.exists():
+        print(
+            f"[copy] {PERSONAL_AGENTS_FILE_NAME}: missing in Codex home, "
+            f"{REPO_AGENTS_FILE_NAME} -> {PERSONAL_AGENTS_FILE_NAME}"
+        )
+        replace_file(repo_agents, personal_agents, args.dry_run)
+        return 1, 0, 0, 1
+
+    if not personal_agents.is_file():
+        raise ValueError(f"Personal path is not a file: {personal_agents}")
+
+    if file_hash(repo_agents) == file_hash(personal_agents):
+        print(f"[same] {PERSONAL_AGENTS_FILE_NAME}: contents match")
+        return 0, 1, 0, 1
+
+    repo_ts = latest_repo_commit_ts(repo, rel_path)
+    personal_ts = personal_agents.stat().st_mtime
+    repo_dirty = repo_path_is_dirty(repo, rel_path)
+
+    if args.verbose:
+        print(
+            f"[info] {PERSONAL_AGENTS_FILE_NAME}: repo={fmt_ts(repo_ts)}, "
+            f"personal={fmt_ts(personal_ts)} ({personal_agents})"
+        )
+
+    if repo_ts is None or personal_ts > repo_ts:
+        if repo_dirty and not args.allow_dirty_repo_overwrite:
+            print(
+                f"[skip] {PERSONAL_AGENTS_FILE_NAME}: personal file is newer, "
+                f"but repository {REPO_AGENTS_FILE_NAME} has uncommitted "
+                "changes. Re-run with --allow-dirty-repo-overwrite to replace "
+                "the repository copy."
+            )
+            return 0, 0, 1, 1
+        print(
+            f"[copy] {PERSONAL_AGENTS_FILE_NAME}: personal file newer "
+            f"({fmt_ts(personal_ts)} > {fmt_ts(repo_ts)}), "
+            f"{PERSONAL_AGENTS_FILE_NAME} -> {REPO_AGENTS_FILE_NAME}"
+        )
+        replace_file(personal_agents, repo_agents, args.dry_run)
+        return 1, 0, 0, 1
+
+    print(
+        f"[copy] {PERSONAL_AGENTS_FILE_NAME}: repository file current "
+        f"({fmt_ts(repo_ts)} >= {fmt_ts(personal_ts)}), "
+        f"{REPO_AGENTS_FILE_NAME} -> {PERSONAL_AGENTS_FILE_NAME}"
+    )
+    replace_file(repo_agents, personal_agents, args.dry_run)
+    return 1, 0, 0, 1
 
 
 def sync(args: argparse.Namespace) -> int:
@@ -275,7 +365,7 @@ def sync(args: argparse.Namespace) -> int:
 
         repo_ts = latest_repo_commit_ts(repo, skill.rel_path)
         home_ts, home_latest_path = latest_file_mtime(home_skill)
-        repo_dirty = repo_skill_is_dirty(repo, skill.rel_path)
+        repo_dirty = repo_path_is_dirty(repo, skill.rel_path)
 
         if args.verbose:
             print(
@@ -306,25 +396,38 @@ def sync(args: argparse.Namespace) -> int:
             replace_tree(skill.path, home_skill, args.dry_run)
             copied += 1
 
+    agents_copied, agents_unchanged, agents_skipped, agents_considered = (
+        sync_agents_file(args, repo, home_skills_dir)
+    )
+
     print(
         f"Summary: {copied} copied, {unchanged} unchanged, "
         f"{skipped} skipped, {len(skills)} repository skills considered."
     )
-    return 2 if skipped else 0
+    if agents_considered:
+        print(
+            f"AGENTS.md summary: {agents_copied} copied, "
+            f"{agents_unchanged} unchanged, {agents_skipped} skipped, "
+            f"{agents_considered} repository file considered."
+        )
+    return 2 if skipped or agents_skipped else 0
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Sync custom Codex skill directories between a Git repository and "
-            "the personal Codex skills directory."
+            "Sync custom Codex skill directories and personal AGENTS.md "
+            "between a Git repository and Codex home."
         )
     )
     parser.add_argument("repo", help="Path to the Git repository containing skills")
     parser.add_argument(
         "--home-skills-dir",
         default=str(default_home_skills_dir()),
-        help="Personal skills directory. Defaults to $CODEX_HOME/skills or ~/.codex/skills.",
+        help=(
+            "Personal skills directory. Defaults to $CODEX_HOME/skills or "
+            "~/.codex/skills. AGENTS.md is resolved as a sibling."
+        ),
     )
     parser.add_argument(
         "--dry-run",
@@ -334,7 +437,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--allow-dirty-repo-overwrite",
         action="store_true",
-        help="Allow a newer personal skill to overwrite a dirty repo skill.",
+        help=(
+            "Allow a newer personal skill or AGENTS.md to overwrite its dirty "
+            "repository counterpart."
+        ),
     )
     parser.add_argument(
         "--verbose",

@@ -1,4 +1,4 @@
 interface:
   display_name: "Sync Custom Skills"
-  short_description: "Sync custom skills between repo and Codex home"
-  default_prompt: "Use $sync-custom-skills to sync my custom skills repository into my personal Codex skills."
+  short_description: "Sync custom skills and AGENTS.md with Codex home"
+  default_prompt: "Use $sync-custom-skills to sync my custom skills and personal AGENTS.md between their repository and Codex home."

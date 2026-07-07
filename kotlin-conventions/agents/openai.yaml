@@ -1,0 +1,4 @@
+interface:
+  display_name: "Kotlin Conventions"
+  short_description: "Apply personal Kotlin structure and style rules"
+  default_prompt: "Use $kotlin-conventions when editing or reviewing this Kotlin code."
