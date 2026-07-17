@@ -39,6 +39,34 @@ QUALIFIERS = {
     "sp": 1,
 }
 
+UPGRADE_SUPPRESSION_PATTERNS = (
+    re.compile(r"\bnoinspection\s+GradleDependency\b", re.IGNORECASE),
+    re.compile(
+        r"\b(?:do\s+not|don['’]?t|never)\s+(?:upgrade|update|bump|merge|raise)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:avoid|skip|suppress)\s+(?:the\s+)?(?:upgrad(?:e|ing)|updat(?:e|ing)|bump(?:ing)?|merging)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:must|should)\s+not\s+be\s+(?:upgraded|updated|bumped|raised)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:keep|leave|remain|stay)\b.{0,100}\b(?:pinned|unchanged|as[- ]is|at\s+(?:this|the\s+current)\s+version)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(r"\b(?:intentionally\s+)?(?:pinned|held\s+back)\b", re.IGNORECASE),
+    re.compile(
+        r"\b(?:upgrade|updating|update|bump|bumping)\b.{0,160}\b(?:force|break|raise|increase|require)\b.{0,160}\b(?:consumer|downstream|compatibility|minimum|version)\b",
+        re.IGNORECASE,
+    ),
+)
+
+GRADLE_VERSIONS_URL = "https://services.gradle.org/versions/all"
+SKIPPED_WRAPPER_DIRECTORIES = {".git", ".gradle", "build", "out"}
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -47,6 +75,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-json", type=Path, required=True)
     parser.add_argument("--output-markdown", type=Path, required=True)
     parser.add_argument("--workers", type=int, default=32)
+    parser.add_argument(
+        "--gradle-versions-url",
+        default=GRADLE_VERSIONS_URL,
+        help="Gradle version-service URL (defaults to the official all-versions endpoint)",
+    )
     parser.add_argument(
         "--settings",
         action="append",
@@ -81,6 +114,218 @@ def read_properties(path: Path) -> dict[str, str]:
             key, value = line.split("=", 1)
             result[key.strip()] = value.strip()
     return result
+
+
+def display_path(path: Path, root: Path) -> str:
+    try:
+        return path.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError:
+        return str(path.resolve())
+
+
+def redacted_url(url: str) -> str:
+    parsed = urllib.parse.urlsplit(url)
+    hostname = parsed.hostname or ""
+    if ":" in hostname and not hostname.startswith("["):
+        hostname = f"[{hostname}]"
+    netloc = hostname
+    if parsed.port:
+        netloc = f"{netloc}:{parsed.port}"
+    return urllib.parse.urlunsplit((parsed.scheme, netloc, parsed.path, "", ""))
+
+
+def discover_gradle_wrapper_files(root: Path, settings_files: list[Path]) -> list[Path]:
+    candidates = {
+        directory / "gradle" / "wrapper" / "gradle-wrapper.properties"
+        for directory in {root.resolve(), *(path.parent.resolve() for path in settings_files)}
+    }
+    for path in root.rglob("gradle-wrapper.properties"):
+        if path.parent.name != "wrapper" or path.parent.parent.name != "gradle":
+            continue
+        try:
+            relative_parts = path.relative_to(root).parts
+        except ValueError:
+            relative_parts = path.parts
+        if not any(part in SKIPPED_WRAPPER_DIRECTORIES for part in relative_parts):
+            candidates.add(path.resolve())
+    return sorted(path for path in candidates if path.is_file())
+
+
+def wrapper_distribution(path: Path, root: Path) -> dict:
+    comments: list[str] = []
+    distribution_url = ""
+    distribution_comment = ""
+    for raw_line in path.read_text(errors="replace").splitlines():
+        line = raw_line.strip()
+        if not line:
+            comments = []
+            continue
+        if line.startswith(("#", "!")):
+            comments.append(re.sub(r"^[#!]+\s*", "", line))
+            continue
+        if "=" not in line:
+            comments = []
+            continue
+        key, value = line.split("=", 1)
+        if key.strip() == "distributionUrl":
+            distribution_url = re.sub(r"\\([:=])", r"\1", value.strip())
+            distribution_comment = " ".join(comments)
+            break
+        comments = []
+
+    result = {
+        "path": display_path(path, root),
+        "current": "",
+        "distributionType": "",
+        "distributionUrl": redacted_url(distribution_url) if distribution_url else "",
+        "upgradeSuppression": "",
+        "latestStable": "",
+        "latestAvailable": "",
+        "stableDistributionUrl": "",
+        "stableDistributionStatus": 0,
+        "availableDistributionUrl": "",
+        "availableDistributionStatus": 0,
+        "error": "",
+        "_distributionUrl": distribution_url,
+    }
+    if distribution_comment and any(
+        pattern.search(distribution_comment) for pattern in UPGRADE_SUPPRESSION_PATTERNS
+    ):
+        result["upgradeSuppression"] = distribution_comment
+    if not distribution_url:
+        result["error"] = "distributionUrl is missing"
+        return result
+    parsed = urllib.parse.urlsplit(distribution_url)
+    if parsed.scheme not in {"file", "http", "https"}:
+        result["error"] = f"Unsupported distributionUrl scheme: {parsed.scheme or 'relative'}"
+        return result
+    filename = urllib.parse.unquote(parsed.path.rsplit("/", 1)[-1])
+    match = re.fullmatch(r"gradle-(?P<version>.+)-(?P<type>bin|all)\.zip", filename)
+    if not match:
+        result["error"] = "distributionUrl does not contain a recognizable Gradle distribution version"
+        return result
+    result["current"] = match.group("version")
+    result["distributionType"] = match.group("type")
+    if not comparable(result["current"]):
+        result["error"] = f"Gradle version is not comparable: {result['current']}"
+    return result
+
+
+def gradle_distribution_url(wrapper: dict, version: str) -> str:
+    parsed = urllib.parse.urlsplit(wrapper["_distributionUrl"])
+    directory = parsed.path.rsplit("/", 1)[0]
+    filename = f"gradle-{version}-{wrapper['distributionType']}.zip"
+    path = f"{directory}/{filename}" if directory else f"/{filename}"
+    return urllib.parse.urlunsplit(
+        (parsed.scheme, parsed.netloc, path, parsed.query, parsed.fragment)
+    )
+
+
+def fetch_gradle_versions(url: str) -> tuple[list[dict], dict]:
+    request = urllib.request.Request(
+        url, headers={"User-Agent": "check-dependency-upgrades/1"}
+    )
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(request, timeout=20) as response:
+                payload = json.load(response)
+                status = getattr(response, "status", None) or 200
+            if not isinstance(payload, list):
+                raise ValueError("Gradle version service did not return a JSON list")
+            return payload, {
+                "url": redacted_url(url),
+                "status": status,
+                "versions": len(payload),
+                "error": "",
+            }
+        except urllib.error.HTTPError as error:
+            if error.code not in {429, 500, 502, 503, 504} or attempt == 2:
+                return [], {
+                    "url": redacted_url(url),
+                    "status": error.code,
+                    "versions": 0,
+                    "error": f"HTTP {error.code}",
+                }
+        except Exception as error:
+            if attempt == 2:
+                return [], {
+                    "url": redacted_url(url),
+                    "status": 0,
+                    "versions": 0,
+                    "error": str(error),
+                }
+        time.sleep(0.5 * (attempt + 1))
+    raise AssertionError("unreachable")
+
+
+def select_gradle_versions(entries: list[dict], current: str) -> tuple[str, str]:
+    current_key = version_tokens(current)
+    available: list[str] = []
+    stable_versions: list[str] = []
+    for entry in entries:
+        version = str(entry.get("version", "")).strip()
+        if (
+            not version
+            or entry.get("broken")
+            or entry.get("snapshot")
+            or entry.get("nightly")
+            or entry.get("releaseNightly")
+            or "snapshot" in version.lower()
+            or "nightly" in version.lower()
+            or not comparable(version)
+            or version_tokens(version) <= current_key
+        ):
+            continue
+        available.append(version)
+        if stable(version):
+            stable_versions.append(version)
+    latest_stable = max(stable_versions, key=version_tokens) if stable_versions else ""
+    latest_available = max(available, key=version_tokens) if available else ""
+    return latest_stable, latest_available
+
+
+def fetch_gradle_distribution(url: str) -> dict:
+    parsed = urllib.parse.urlsplit(url)
+    if parsed.scheme == "file":
+        exists = Path(urllib.request.url2pathname(parsed.path)).is_file()
+        return {
+            "_requestUrl": url,
+            "url": redacted_url(url),
+            "status": 200 if exists else 404,
+            "error": "" if exists else "HTTP 404",
+        }
+
+    request = urllib.request.Request(
+        url, headers={"User-Agent": "check-dependency-upgrades/1"}, method="HEAD"
+    )
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(request, timeout=20) as response:
+                status = getattr(response, "status", None) or 200
+            return {
+                "_requestUrl": url,
+                "url": redacted_url(url),
+                "status": status,
+                "error": "",
+            }
+        except urllib.error.HTTPError as error:
+            if error.code not in {429, 500, 502, 503, 504} or attempt == 2:
+                return {
+                    "_requestUrl": url,
+                    "url": redacted_url(url),
+                    "status": error.code,
+                    "error": f"HTTP {error.code}",
+                }
+        except Exception as error:
+            if attempt == 2:
+                return {
+                    "_requestUrl": url,
+                    "url": redacted_url(url),
+                    "status": 0,
+                    "error": str(error),
+                }
+        time.sleep(0.5 * (attempt + 1))
+    raise AssertionError("unreachable")
 
 
 def literal_included_builds(settings: str) -> list[str]:
@@ -586,6 +831,11 @@ def compatibility_variant(current: str, candidate: str) -> bool:
     return candidate.startswith(current + "-") and any(word in lower for word in ("compat", "jdk"))
 
 
+def excluded_candidate(version: str) -> bool:
+    lower = version.lower()
+    return "snapshot" in lower or "nightly" in lower
+
+
 def current_version(spec, versions: dict[str, str]) -> str:
     if isinstance(spec, str):
         return spec
@@ -604,20 +854,87 @@ def version_source(spec) -> str:
     return value["ref"] if isinstance(value, dict) and "ref" in value else "inline"
 
 
+def version_comments(path: Path) -> dict[str, str]:
+    result: dict[str, str] = {}
+    in_versions = False
+    comments: list[str] = []
+
+    for raw_line in path.read_text().splitlines():
+        line = raw_line.strip()
+        if section := re.fullmatch(r"\[\s*([^]]+)\s*]\s*(?:#.*)?", line):
+            in_versions = section.group(1).strip() == "versions"
+            comments = []
+            continue
+        if not in_versions:
+            continue
+        if not line:
+            comments = []
+            continue
+        if line.startswith("#"):
+            comments.append(line)
+            continue
+
+        key_match = re.match(
+            r"(?:['\"](?P<quoted>[^'\"]+)['\"]|(?P<bare>[A-Za-z0-9_-]+))\s*=",
+            line,
+        )
+        if key_match:
+            key = key_match.group("quoted") or key_match.group("bare")
+            if comments:
+                result[key] = " ".join(
+                    re.sub(r"^#+\s*", "", comment).strip() for comment in comments
+                )
+        comments = []
+
+    return result
+
+
+def version_suppressions(path: Path) -> dict[str, str]:
+    return {
+        key: comment
+        for key, comment in version_comments(path).items()
+        if any(pattern.search(comment) for pattern in UPGRADE_SUPPRESSION_PATTERNS)
+    }
+
+
 def parse_catalog(path: Path):
     with path.open("rb") as source:
         catalog = tomllib.load(source)
     versions = catalog.get("versions", {})
+    comments = version_comments(path)
+    suppressions = version_suppressions(path)
     rows = []
     for alias, spec in catalog.get("libraries", {}).items():
         coordinate = spec["module"] if "module" in spec else f"{spec['group']}:{spec['name']}"
-        rows.append({"kind": "library", "alias": alias, "coordinate": coordinate, "current": current_version(spec, versions), "versionSource": version_source(spec)})
+        source = version_source(spec)
+        rows.append(
+            {
+                "kind": "library",
+                "alias": alias,
+                "coordinate": coordinate,
+                "current": current_version(spec, versions),
+                "versionSource": source,
+                "versionComment": comments.get(source, ""),
+                "upgradeSuppression": suppressions.get(source, ""),
+            }
+        )
     for alias, spec in catalog.get("plugins", {}).items():
         if isinstance(spec, str):
             plugin_id, version = spec.rsplit(":", 1)
         else:
             plugin_id, version = spec["id"], current_version(spec, versions)
-        rows.append({"kind": "plugin", "alias": alias, "coordinate": f"{plugin_id}:{plugin_id}.gradle.plugin", "current": version, "versionSource": version_source(spec)})
+        source = version_source(spec)
+        rows.append(
+            {
+                "kind": "plugin",
+                "alias": alias,
+                "coordinate": f"{plugin_id}:{plugin_id}.gradle.plugin",
+                "current": version,
+                "versionSource": source,
+                "versionComment": comments.get(source, ""),
+                "upgradeSuppression": suppressions.get(source, ""),
+            }
+        )
     return rows
 
 
@@ -643,48 +960,287 @@ def fetch_pom(job, repositories, credentials):
         return {"kind": kind, "coordinate": coordinate, "version": version, "repository": repository, "url": url, "status": 0, "error": str(error)}
 
 
-def grouped(rows, predicate):
-    groups = {}
+def has_update(row: dict) -> bool:
+    return bool(row["latestStable"] or row["latestAvailable"])
+
+
+def held_update_coordinates(rows: list[dict]) -> set[str]:
+    return {
+        row["coordinate"]
+        for row in rows
+        if row["upgradeSuppression"] and has_update(row)
+    }
+
+
+def action_key(row: dict) -> str:
+    source = row["versionSource"]
+    return f"inline:{row['alias']}" if source == "inline" else source
+
+
+def action_groups(rows: list[dict]) -> list[list[dict]]:
+    groups: dict[tuple[str, str], list[dict]] = {}
     for row in rows:
-        if predicate(row):
-            key = (row["versionSource"], row["current"], row["latestStable"], row["latestAvailable"])
-            groups.setdefault(key, []).append(row)
+        if row["current"]:
+            groups.setdefault((action_key(row), row["current"]), []).append(row)
     return [groups[key] for key in sorted(groups)]
 
 
-def markdown(result: dict) -> str:
-    rows = result["rows"]
-    lines = [
-        "### Stable or pinned updates",
-        "",
-        "| Catalog key | Current | Latest stable | Latest available | Full Maven coordinates at latest stable or pinned version |",
-        "|---|---:|---:|---:|---|",
+def action_label(group: list[dict]) -> str:
+    row = group[0]
+    return row["alias"] if row["versionSource"] == "inline" else row["versionSource"]
+
+
+def metadata_candidate_versions(row: dict, *, stable_only: bool = False) -> set[str]:
+    current = row["current"]
+    if not current:
+        return set()
+    candidates: set[str] = set()
+    for item in row.get("metadata", []):
+        if item.get("error"):
+            continue
+        values = list(item.get("versions", []))
+        values.extend(item.get(field, "") for field in ("release", "latest"))
+        for version in values:
+            if (
+                not version
+                or excluded_candidate(version)
+                or not comparable(version)
+                or (stable_only and not stable(version))
+            ):
+                continue
+            if comparable(current):
+                if version_tokens(version) <= version_tokens(current):
+                    continue
+            elif version == current:
+                continue
+            candidates.add(version)
+    return candidates
+
+
+def common_candidate(group: list[dict], *, stable_only: bool = False) -> str:
+    candidate_sets = [
+        metadata_candidate_versions(row, stable_only=stable_only) for row in group
     ]
-    stable_groups = grouped(rows, lambda row: bool(row["latestStable"]) or (bool(row["latestAvailable"]) and not comparable(row["current"])))
-    for group in stable_groups:
-        row = group[0]
-        coords = "<br>".join(
-            sorted(
+    if not candidate_sets or any(not candidates for candidates in candidate_sets):
+        return ""
+    common = set.intersection(*candidate_sets)
+    return max(common, key=version_tokens) if common else ""
+
+
+def pom_statuses(pom_results: list[dict]) -> dict[tuple[str, str, str], int]:
+    return {
+        (item["kind"], item["coordinate"], item["version"]): item["status"]
+        for item in pom_results
+    }
+
+
+def verified_action(
+    group: list[dict], version: str, statuses: dict[tuple[str, str, str], int]
+) -> bool:
+    return bool(version) and all(
+        statuses.get((row["kind"], row["coordinate"], version)) == 200
+        for row in group
+    )
+
+
+def action_record(
+    group: list[dict], latest_stable: str, latest_available: str, target: str
+) -> dict:
+    return {
+        "key": action_label(group),
+        "current": group[0]["current"],
+        "latestStable": latest_stable,
+        "latestAvailable": latest_available,
+        "targetVersion": target,
+        "coordinates": sorted({f"{row['coordinate']}:{target}" for row in group}),
+        "aliases": sorted({row["alias"] for row in group}),
+    }
+
+
+def classify_catalog_actions(rows: list[dict], pom_results: list[dict]) -> dict:
+    held_coordinates = held_update_coordinates(rows)
+    statuses = pom_statuses(pom_results)
+    actions = {
+        "ready": [],
+        "preview": [],
+        "held": [],
+        "blockedByHeldCoordinates": [],
+        "compatibility": [],
+        "verificationFailures": [],
+    }
+
+    for group in action_groups(rows):
+        latest_stable = common_candidate(group, stable_only=True)
+        latest_available = common_candidate(group)
+        if not latest_stable and not latest_available:
+            continue
+
+        suppressed = [row for row in group if row["upgradeSuppression"]]
+        blocked_coordinates = sorted(
+            {row["coordinate"] for row in group if row["coordinate"] in held_coordinates}
+        )
+        pinned = not comparable(group[0]["current"])
+        target = latest_stable or latest_available
+        record = action_record(group, latest_stable, latest_available, target)
+
+        if suppressed:
+            record["suppression"] = " ".join(
+                dict.fromkeys(row["upgradeSuppression"] for row in suppressed)
+            )
+            record["verified"] = verified_action(group, target, statuses)
+            actions["held"].append(record)
+            continue
+
+        if blocked_coordinates:
+            blocked_aliases = sorted(
                 {
-                    f"`{item['coordinate']}:{item['latestStable'] or item['latestAvailable']}`"
-                    for item in group
+                    row["alias"]
+                    for row in group
+                    if row["coordinate"] in blocked_coordinates
                 }
             )
-        )
-        lines.append(f"| `{row['versionSource']}` | `{row['current']}` | `{row['latestStable'] or '—'}` | `{row['latestAvailable']}` | {coords} |")
+            record["blockedCoordinates"] = blocked_coordinates
+            record["reason"] = (
+                "Changing this catalog key would also upgrade held coordinate(s) "
+                f"{', '.join(blocked_coordinates)} through alias(es) "
+                f"{', '.join(blocked_aliases)}."
+            )
+            record["verified"] = verified_action(group, target, statuses)
+            actions["blockedByHeldCoordinates"].append(record)
+            continue
 
+        if latest_stable or pinned:
+            if verified_action(group, target, statuses):
+                actions["ready"].append(record)
+            else:
+                record["reason"] = "One or more exact candidate POM requests did not return HTTP 200."
+                actions["verificationFailures"].append(record)
+            continue
+
+        if compatibility_variant(group[0]["current"], latest_available):
+            if verified_action(group, target, statuses):
+                actions["compatibility"].append(record)
+            else:
+                record["reason"] = "One or more exact candidate POM requests did not return HTTP 200."
+                actions["verificationFailures"].append(record)
+            continue
+
+        if verified_action(group, target, statuses):
+            actions["preview"].append(record)
+        else:
+            record["reason"] = "One or more exact candidate POM requests did not return HTTP 200."
+            actions["verificationFailures"].append(record)
+
+    return actions
+
+
+def markdown_cell(value: str) -> str:
+    return value.replace("|", r"\|").replace("\n", " ")
+
+
+def markdown(result: dict) -> str:
+    wrappers = result.get("gradleWrappers", [])
+    actions = result["catalogActions"]
+
+    lines = [
+        "### Ready stable or pinned updates",
+        "",
+        "Only dependencies ready to upgrade are listed here; intentionally held coordinates appear only in the third table.",
+        "",
+        "| Catalog key or wrapper | Current | Latest stable | Latest available | Verified Maven coordinates or Gradle distribution |",
+        "|---|---:|---:|---:|---|",
+    ]
+    for wrapper in wrappers:
+        if (
+            wrapper["latestStable"]
+            and not wrapper["upgradeSuppression"]
+            and wrapper["stableDistributionStatus"] == 200
+        ):
+            label = markdown_cell(wrapper["path"])
+            target = markdown_cell(wrapper["stableDistributionUrl"])
+            lines.append(
+                f"| `Gradle wrapper: {label}` | `{wrapper['current']}` | "
+                f"`{wrapper['latestStable']}` | `{wrapper['latestAvailable'] or wrapper['latestStable']}` | "
+                f"<{target}> |"
+            )
+    for action in actions["ready"]:
+        coords = "<br>".join(f"`{coordinate}`" for coordinate in action["coordinates"])
+        lines.append(
+            f"| `{action['key']}` | `{action['current']}` | "
+            f"`{action['latestStable'] or '—'}` | `{action['latestAvailable']}` | {coords} |"
+        )
     lines += [
         "",
         "### Preview-only updates",
         "",
-        "| Catalog key | Current | Latest available | Full Maven coordinates at latest available |",
+        "| Catalog key or wrapper | Current | Latest available | Verified Maven coordinates or Gradle distribution |",
         "|---|---:|---:|---|",
     ]
-    preview_groups = grouped(rows, lambda row: bool(row["latestAvailable"]) and not row["latestStable"] and comparable(row["current"]) and not compatibility_variant(row["current"], row["latestAvailable"]))
-    for group in preview_groups:
-        row = group[0]
-        coords = "<br>".join(sorted({f"`{item['coordinate']}:{item['latestAvailable']}`" for item in group}))
-        lines.append(f"| `{row['versionSource']}` | `{row['current']}` | `{row['latestAvailable']}` | {coords} |")
+    for wrapper in wrappers:
+        if (
+            wrapper["latestAvailable"]
+            and not wrapper["latestStable"]
+            and not wrapper["upgradeSuppression"]
+            and wrapper["availableDistributionStatus"] == 200
+        ):
+            label = markdown_cell(wrapper["path"])
+            target = markdown_cell(wrapper["availableDistributionUrl"])
+            lines.append(
+                f"| `Gradle wrapper: {label}` | `{wrapper['current']}` | "
+                f"`{wrapper['latestAvailable']}` | <{target}> |"
+            )
+    for action in actions["preview"]:
+        coords = "<br>".join(f"`{coordinate}`" for coordinate in action["coordinates"])
+        lines.append(
+            f"| `{action['key']}` | `{action['current']}` | "
+            f"`{action['latestAvailable']}` | {coords} |"
+        )
+
+    lines += [
+        "",
+        "### Intentionally held-back updates—not to merge",
+        "",
+        "| Catalog key or wrapper | Current | Latest stable | Latest available | Suppression | Verified Maven coordinates or Gradle distribution |",
+        "|---|---:|---:|---:|---|---|",
+    ]
+    for wrapper in wrappers:
+        if wrapper["upgradeSuppression"] and (
+            wrapper["latestStable"] or wrapper["latestAvailable"]
+        ):
+            label = markdown_cell(wrapper["path"])
+            target = markdown_cell(
+                wrapper["stableDistributionUrl"]
+                if wrapper["latestStable"]
+                else wrapper["availableDistributionUrl"]
+            )
+            lines.append(
+                f"| `Gradle wrapper: {label}` | `{wrapper['current']}` | "
+                f"`{wrapper['latestStable'] or '—'}` | `{wrapper['latestAvailable']}` | "
+                f"{markdown_cell(wrapper['upgradeSuppression'])} | <{target}> |"
+            )
+    for action in actions["held"]:
+        coords = "<br>".join(f"`{coordinate}`" for coordinate in action["coordinates"])
+        reason = markdown_cell(action["suppression"])
+        lines.append(
+            f"| `{action['key']}` | `{action['current']}` | "
+            f"`{action['latestStable'] or '—'}` | `{action['latestAvailable']}` | "
+            f"{reason} | {coords} |"
+        )
+
+    lines += [
+        "",
+        "### Catalog keys blocked by intentionally held coordinates",
+        "",
+        "These keys are not ready: changing one would also change a coordinate listed in the held-back table.",
+        "",
+        "| Catalog key | Current | Candidate | Blocking reason |",
+        "|---|---:|---:|---|",
+    ]
+    for action in actions["blockedByHeldCoordinates"]:
+        lines.append(
+            f"| `{action['key']}` | `{action['current']}` | "
+            f"`{action['targetVersion']}` | {markdown_cell(action['reason'])} |"
+        )
 
     lines += [
         "",
@@ -693,11 +1249,48 @@ def markdown(result: dict) -> str:
         "| Current | Maven release | Full Maven coordinates |",
         "|---:|---:|---|",
     ]
-    compatibility_groups = grouped(rows, lambda row: bool(row["latestAvailable"]) and compatibility_variant(row["current"], row["latestAvailable"]))
-    for group in compatibility_groups:
-        row = group[0]
-        coords = "<br>".join(sorted({f"`{item['coordinate']}:{item['latestAvailable']}`" for item in group}))
-        lines.append(f"| `{row['current']}` | `{row['latestAvailable']}` | {coords} |")
+    for action in actions["compatibility"]:
+        coords = "<br>".join(f"`{coordinate}`" for coordinate in action["coordinates"])
+        lines.append(
+            f"| `{action['current']}` | `{action['latestAvailable']}` | {coords} |"
+        )
+
+    lines += [
+        "",
+        "### Maven candidate checks requiring attention",
+        "",
+        "| Catalog key | Current | Candidate | Issue |",
+        "|---|---:|---:|---|",
+    ]
+    for action in actions["verificationFailures"]:
+        lines.append(
+            f"| `{action['key']}` | `{action['current']}` | "
+            f"`{action['targetVersion']}` | {markdown_cell(action['reason'])} |"
+        )
+
+    lines += [
+        "",
+        "### Gradle wrapper checks requiring attention",
+        "",
+        "| Wrapper | Current | Issue |",
+        "|---|---:|---|",
+    ]
+    for wrapper in wrappers:
+        issues = [wrapper["error"]] if wrapper["error"] else []
+        for label, version, status in (
+            ("stable", wrapper["latestStable"], wrapper["stableDistributionStatus"]),
+            (
+                "available",
+                wrapper["latestAvailable"],
+                wrapper["availableDistributionStatus"],
+            ),
+        ):
+            if version and status != 200:
+                issues.append(f"{label} candidate {version} distribution returned status {status}")
+        if issues:
+            label = markdown_cell(wrapper["path"])
+            issue = markdown_cell("; ".join(dict.fromkeys(issues)))
+            lines.append(f"| `{label}` | `{wrapper['current'] or '—'}` | {issue} |")
     return "\n".join(lines) + "\n"
 
 
@@ -725,18 +1318,16 @@ def main() -> int:
     for row in rows:
         results = by_query.get((row["kind"], row["coordinate"]), [])
         successes = [item for item in results if not item.get("error")]
-        releases, stable_versions = [], []
-        for item in successes:
-            candidate = item.get("release") or item.get("latest")
-            if candidate and candidate != row["current"] and (not comparable(row["current"]) or version_tokens(candidate) > version_tokens(row["current"])):
-                releases.append(candidate)
-            if comparable(row["current"]):
-                current_key = version_tokens(row["current"])
-                stable_versions += [version for version in item.get("versions", []) if stable(version) and version_tokens(version) > current_key]
-        row["latestAvailable"] = max(releases, key=version_tokens) if releases else ""
-        row["latestStable"] = max(stable_versions, key=version_tokens) if stable_versions else ""
         row["repositoriesFound"] = [item["repository"] for item in successes]
         row["metadata"] = results
+        available_versions = metadata_candidate_versions(row)
+        stable_versions = metadata_candidate_versions(row, stable_only=True)
+        row["latestAvailable"] = (
+            max(available_versions, key=version_tokens) if available_versions else ""
+        )
+        row["latestStable"] = (
+            max(stable_versions, key=version_tokens) if stable_versions else ""
+        )
 
     def candidate_repository(row, version):
         for item in by_query.get((row["kind"], row["coordinate"]), []):
@@ -751,10 +1342,90 @@ def main() -> int:
             repository = candidate_repository(row, version)
             if version and repository:
                 pom_jobs.add((row["kind"], row["coordinate"], version, repository))
+    for group in action_groups(rows):
+        for version in (
+            common_candidate(group, stable_only=True),
+            common_candidate(group),
+        ):
+            if not version:
+                continue
+            for row in group:
+                repository = candidate_repository(row, version)
+                if repository:
+                    pom_jobs.add(
+                        (row["kind"], row["coordinate"], version, repository)
+                    )
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as executor:
         pom_results = list(executor.map(lambda job: fetch_pom(job, repositories, credentials), sorted(pom_jobs)))
 
+    wrapper_files = discover_gradle_wrapper_files(root, settings_files)
+    wrappers = [wrapper_distribution(path, root) for path in wrapper_files]
+    gradle_version_service = {
+        "url": redacted_url(args.gradle_versions_url),
+        "status": 0,
+        "versions": 0,
+        "error": "",
+    }
+    distribution_results: list[dict] = []
+    valid_wrappers = [wrapper for wrapper in wrappers if not wrapper["error"]]
+    if valid_wrappers:
+        gradle_versions, gradle_version_service = fetch_gradle_versions(
+            args.gradle_versions_url
+        )
+        if gradle_version_service["error"]:
+            for wrapper in valid_wrappers:
+                wrapper["error"] = (
+                    "Gradle version service failed: "
+                    f"{gradle_version_service['error']}"
+                )
+        else:
+            distribution_jobs: set[str] = set()
+            for wrapper in valid_wrappers:
+                latest_stable, latest_available = select_gradle_versions(
+                    gradle_versions, wrapper["current"]
+                )
+                wrapper["latestStable"] = latest_stable
+                wrapper["latestAvailable"] = latest_available
+                for prefix, version in (
+                    ("stable", latest_stable),
+                    ("available", latest_available),
+                ):
+                    if not version:
+                        continue
+                    request_url = gradle_distribution_url(wrapper, version)
+                    wrapper[f"_{prefix}DistributionUrl"] = request_url
+                    wrapper[f"{prefix}DistributionUrl"] = redacted_url(request_url)
+                    distribution_jobs.add(request_url)
+
+            with concurrent.futures.ThreadPoolExecutor(
+                max_workers=args.workers
+            ) as executor:
+                distribution_results = list(
+                    executor.map(
+                        fetch_gradle_distribution, sorted(distribution_jobs)
+                    )
+                )
+            distribution_by_url = {
+                result["_requestUrl"]: result for result in distribution_results
+            }
+            for wrapper in valid_wrappers:
+                for prefix in ("stable", "available"):
+                    request_url = wrapper.get(f"_{prefix}DistributionUrl", "")
+                    if request_url:
+                        wrapper[f"{prefix}DistributionStatus"] = distribution_by_url[
+                            request_url
+                        ]["status"]
+
     unresolved = [row for row in rows if row["current"] and not row["repositoriesFound"]]
+    public_wrappers = [
+        {key: value for key, value in wrapper.items() if not key.startswith("_")}
+        for wrapper in wrappers
+    ]
+    public_distribution_results = [
+        {key: value for key, value in item.items() if not key.startswith("_")}
+        for item in distribution_results
+    ]
+    catalog_actions = classify_catalog_actions(rows, pom_results)
     result = {
         "catalog": str(catalog),
         "mavenCentralUrl": central,
@@ -772,10 +1443,54 @@ def main() -> int:
             "metadataErrors": sum(bool(item.get("error")) and item.get("error") != "404" for item in metadata),
             "candidatePomChecks": len(pom_results),
             "candidatePomFailures": sum(item["status"] != 200 for item in pom_results),
+            "catalogReadyUpdates": len(catalog_actions["ready"]),
+            "catalogPreviewUpdates": len(catalog_actions["preview"]),
+            "catalogHeldUpdates": len(catalog_actions["held"]),
+            "catalogBlockedByHeldCoordinates": len(
+                catalog_actions["blockedByHeldCoordinates"]
+            ),
+            "catalogVerificationFailures": len(
+                catalog_actions["verificationFailures"]
+            ),
             "unresolvedCoordinates": len(unresolved),
+            "suppressedUpdateAliases": sum(
+                bool(row["upgradeSuppression"]) and has_update(row) for row in rows
+            ),
+            "gradleWrappers": len(wrappers),
+            "gradleVersionRequests": int(bool(valid_wrappers)),
+            "gradleVersionErrors": int(bool(gradle_version_service["error"])),
+            "gradleDistributionChecks": len(distribution_results),
+            "gradleDistributionFailures": sum(
+                item["status"] != 200 for item in distribution_results
+            ),
+            "gradleWrapperReadyUpdates": sum(
+                bool(wrapper["latestStable"])
+                and not wrapper["upgradeSuppression"]
+                and wrapper["stableDistributionStatus"] == 200
+                for wrapper in wrappers
+            ),
+            "gradleWrapperPreviewUpdates": sum(
+                bool(wrapper["latestAvailable"])
+                and not wrapper["latestStable"]
+                and not wrapper["upgradeSuppression"]
+                and wrapper["availableDistributionStatus"] == 200
+                for wrapper in wrappers
+            ),
+            "gradleWrapperHeldUpdates": sum(
+                bool(wrapper["upgradeSuppression"])
+                and bool(wrapper["latestStable"] or wrapper["latestAvailable"])
+                for wrapper in wrappers
+            ),
+            "gradleWrapperUnresolved": sum(
+                bool(wrapper["error"]) for wrapper in wrappers
+            ),
         },
         "unresolved": [{key: row[key] for key in ("kind", "alias", "coordinate", "current")} for row in unresolved],
         "candidatePomResults": pom_results,
+        "gradleVersionService": gradle_version_service,
+        "gradleDistributionResults": public_distribution_results,
+        "gradleWrappers": public_wrappers,
+        "catalogActions": catalog_actions,
         "rows": rows,
     }
     args.output_json.write_text(json.dumps(result, indent=2) + "\n")
@@ -783,7 +1498,16 @@ def main() -> int:
     print(json.dumps(result["summary"], sort_keys=True))
     print(args.output_json)
     print(args.output_markdown)
-    return 1 if result["summary"]["metadataErrors"] or result["summary"]["candidatePomFailures"] else 0
+    return 1 if any(
+        result["summary"][key]
+        for key in (
+            "metadataErrors",
+            "candidatePomFailures",
+            "gradleVersionErrors",
+            "gradleDistributionFailures",
+            "gradleWrapperUnresolved",
+        )
+    ) else 0
 
 
 if __name__ == "__main__":
