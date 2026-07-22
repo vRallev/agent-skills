@@ -8,21 +8,13 @@ description: Refresh a Git repository and conservatively identify local branches
 ## Workflow
 
 1. Resolve the repository from the user's path or the current directory.
-2. Refresh remote refs and local `main` or `master` with the installed `git-update` skill:
+2. Refresh remote refs with the installed `git-update` skill:
 
    ```bash
-   bash "${CODEX_HOME:-$HOME/.codex}/skills/git-update/scripts/git_update.sh" <repo>
+   git -C <repo> fetch --prune
    ```
 
-   Preserve all staged and unstaged work. If sandboxing blocks Git metadata, rerun with approval. If temporary worktree creation fails because `git-lfs` is unavailable, rerun the same script with LFS filters disabled only for that process:
-
-   ```bash
-   GIT_CONFIG_COUNT=3 \
-   GIT_CONFIG_KEY_0=filter.lfs.process GIT_CONFIG_VALUE_0= \
-   GIT_CONFIG_KEY_1=filter.lfs.smudge GIT_CONFIG_VALUE_1=cat \
-   GIT_CONFIG_KEY_2=filter.lfs.required GIT_CONFIG_VALUE_2=false \
-   bash "${CODEX_HOME:-$HOME/.codex}/skills/git-update/scripts/git_update.sh" <repo>
-   ```
+   Preserve all staged and unstaged work. If sandboxing blocks Git metadata, rerun the same command with approval. If the refresh fails, stop and report the exact failure instead of auditing stale refs.
 
 3. Run the bundled read-only audit:
 
