@@ -1,6 +1,6 @@
 ---
 name: watch-pr
-description: "Monitor a GitHub pull request until every CI check on its current head is successful and reviewer feedback has stopped arriving. Use when the user asks to watch, monitor, babysit, or wait on a PR; poll every minute, address CI failures as they occur, invoke $address-pr-comments for review feedback, use $commit-changes for each individual CI failure fix or accepted reviewer request, push commits, and continue until the PR is stably green and quiet."
+description: "Monitor a GitHub pull request until every CI check on its current head is successful and reviewer feedback has stopped arriving. Use when the user asks to watch, monitor, babysit, or wait on a PR; poll every 20 seconds in the current task, address CI failures as they occur, invoke $address-pr-comments for review feedback, use $commit-changes for each individual CI failure fix or accepted reviewer request, push commits, and continue until the PR is stably green and quiet."
 ---
 
 # Watch PR
@@ -20,7 +20,7 @@ Monitor one pull request through CI and review feedback. Do not merge the PR.
 
 ## Monitoring Loop
 
-Use the product's recurring monitoring or wait mechanism when available. Otherwise poll every minute without a tight shell loop.
+Remain in the current active task and wait 20 seconds between polls. Do not create or schedule an automation, heartbeat, reminder, follow-up task, or background monitor.
 
 On every poll:
 
@@ -49,7 +49,7 @@ Finish only when all of these are true for the same current head SHA:
 
 - At least one CI check has been discovered, every discovered CI check and job has completed with conclusion `success`, and no expected or required check is missing.
 - Every observed human review or PR-level comment has been considered by `$address-pr-comments`; the latest reply in each handled conversation is `**Ralf-AI:**` or no reply was needed.
-- Two consecutive full snapshots, at least one minute apart, have the same head SHA and no new human comments, while CI remains fully successful.
+- Two consecutive full snapshots, at least 20 seconds apart, have the same head SHA and no new human comments, while CI remains fully successful.
 
 If the PR is merged or closed, stop and report that terminal state. If authentication, branch permissions, an ambiguous/risky request, or a permanently failed external check requires owner action, report the exact blocker and required action; do not falsely declare the PR green.
 
