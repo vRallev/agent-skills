@@ -110,6 +110,8 @@ Make the commit title identify the dependency or coherent dependency group and t
 - known issues found, or the dated and caveated absence of public reports;
 - direct official changelog and issue-search URLs.
 
+Wrap dependency coordinates, code references, file paths, command names, and Gradle module or task paths such as `:abc:def` in backticks in both the commit body and the resulting PR description. Preserve official source URLs as usable Markdown links.
+
 Do not put routine verification commands in the commit body. The body must be useful as the PR description because `$create-or-update-pr` derives PR text from commits.
 
 ### 7. Create or update the PR
@@ -119,7 +121,7 @@ Invoke `$create-or-update-pr` and follow its instructions.
 1. Push without force-pushing or rewriting remote history.
 2. Create new PRs as drafts; preserve the review state of existing PRs.
 3. Verify the resulting title, body, base, head, draft state, and URL.
-4. Ensure the PR body retains the changelog, repository impact, known-issue caveat, and source links from the commit.
+4. Ensure the PR body retains the changelog, repository impact, known-issue caveat, source links, and backtick-formatted code references and Gradle module paths from the commit.
 5. Leave any pre-existing automated PR untouched unless the user explicitly authorizes closing or replacing it.
 
 ### 8. Watch the PR

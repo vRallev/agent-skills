@@ -29,7 +29,7 @@ Do not post an unprefixed GitHub reply, review, or PR comment.
    - **Question:** reply on GitHub without editing code unless it is a leading question and the implied change is clear and sensible.
    - **Inapplicable or misaligned request:** reject it without changing code when it rests on an incorrect assumption, does not apply to the change, is outside the PR's scope, or takes the work in a different direction from the PR's intent. Reply politely with the concrete reason.
    - **Ambiguous, conflicting, or risky request:** ask the user only when judgment cannot confidently determine whether to implement or reject it, or when either choice would materially change the PR's intent.
-6. For each accepted request, validate the focused scope, then create one new commit dedicated to that request. Do not combine separate requests into one commit. Keep earlier commits intact.
+6. For each accepted request, validate the focused scope, then use `$commit-changes` to create one new commit dedicated to that request. Follow its Markdown formatting rules, including backticks around code references, file paths, and Gradle module or task paths such as `:abc:def`. Do not combine separate requests into one commit. Keep earlier commits intact.
 7. Push all new commits to the current PR branch.
 8. Reply to each considered conversation after pushing:
    - For a fix, state what changed and include the commit SHA.

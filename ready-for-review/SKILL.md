@@ -23,7 +23,7 @@ Prepare the current feature branch and its pull request for review. Invoking thi
    - Run `git reset --soft <base>`.
    - Create one commit from the staged combined patch using the saved oldest commit message unchanged. For a history of `A -> B -> C (HEAD)`, preserve the message from `A`.
    - Do not use `git reset --hard`.
-8. Inspect the single combined commit and compare its preserved message with the resulting change. Update the message only when it is out of date or does not describe the content accurately. In either case, use the `$update-commit-message` skill at `/Users/ralf/.codex/skills/update-commit-message/SKILL.md`; treat this ready-for-review invocation as explicit approval to amend the current PR branch commit. Otherwise preserve the oldest commit message exactly, even if different wording could be clearer or more detailed.
+8. Inspect the single combined commit and compare its preserved message with the resulting change. Update the message only when it is out of date or does not describe the content accurately. When an update is warranted, use the `$update-commit-message` skill at `/Users/ralf/.codex/skills/update-commit-message/SKILL.md` and follow its Markdown formatting rules, including backticks around code references, file paths, and Gradle module or task paths such as `:abc:def`; treat this ready-for-review invocation as explicit approval to amend the current PR branch commit. Otherwise preserve the oldest commit message exactly, even if different wording could be clearer or more detailed.
 9. Confirm that the branch contains exactly one commit over the chosen remote base and that the working tree is clean.
 10. Force-push the rewritten branch with lease protection:
 

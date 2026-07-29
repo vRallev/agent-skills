@@ -29,11 +29,11 @@ The description must:
 - Explain why the change is important or helpful; prioritize the "why" over the "what".
 - Mention what changed only briefly, as context for understanding the reason.
 - Emphasize the problem solved, behavior enabled, risk reduced, or project/user benefit.
-- Wrap code references, file paths, command names, and identifiers in backticks for Markdown rendering.
+- Wrap code references, file paths, command names, identifiers, and Gradle module or task paths such as `:abc:def` in backticks for Markdown rendering.
 - Omit verification details such as tests, lint, formatting, or build commands.
 
-Use a non-interactive commit command, for example:
+Pass backtick-containing messages as single-quoted shell arguments or through a message file to prevent command substitution. Use a non-interactive commit command, for example:
 
 ```bash
-git commit -m "Concise imperative title" -m "Explain why the change is important or helpful. Mention what changed only as needed for context, and wrap references like \`FormatCommand\` in backticks."
+git commit -m 'Concise imperative title' -m 'Explain why the change is important or helpful. Mention what changed only as needed for context, and wrap references like `FormatCommand` and `:abc:def` in backticks.'
 ```
