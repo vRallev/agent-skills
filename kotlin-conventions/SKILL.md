@@ -46,6 +46,30 @@ class Class1 {}
 class Class2 {}
 ```
 
+## KDoc
+
+Add KDoc only when it gives callers information beyond the declaration and its types. Explain the API intent, how to use it, its observable behavior, and non-obvious edge cases.
+
+Do not document requirements, architectural goals, encapsulation constraints, implementation details, or design justifications that do not help callers use the API.
+
+Prefer:
+
+```kotlin
+/**
+ * Adds [interceptor] to the end of the request pipeline.
+ *
+ * An interceptor can return a response without invoking later interceptors.
+ */
+fun addInterceptor(interceptor: RequestInterceptor)
+```
+
+Avoid:
+
+```kotlin
+/** Configures request behavior without exposing its internal backend state. */
+interface FakeServerControl
+```
+
 ## Lambdas Over Method References
 
 Prefer lambdas over method references. For example, use `abc.doSomething { it.abc() }` instead of `abc.doSomething(Abc::abc)`.
