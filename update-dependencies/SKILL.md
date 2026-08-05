@@ -104,6 +104,7 @@ Make the commit title identify the dependency or coherent dependency group and t
 
 - why the upgrade is useful;
 - every old-to-new version;
+- the official release date of each target version in `YYYY-MM-DD` format;
 - the important changelog behavior, fixes, or breaking changes;
 - whether changed behavior reaches current call sites;
 - platform-floor or transitive dependency changes and repository compatibility;
@@ -121,7 +122,7 @@ Invoke `$create-or-update-pr` and follow its instructions.
 1. Push without force-pushing or rewriting remote history.
 2. Create new PRs as drafts; preserve the review state of existing PRs.
 3. Verify the resulting title, body, base, head, draft state, and URL.
-4. Ensure the PR body retains the changelog, repository impact, known-issue caveat, source links, and backtick-formatted code references and Gradle module paths from the commit.
+4. Ensure the PR body retains each target-version release date, the changelog, repository impact, known-issue caveat, source links, and backtick-formatted code references and Gradle module paths from the commit.
 5. Leave any pre-existing automated PR untouched unless the user explicitly authorizes closing or replacing it.
 
 ### 8. Watch the PR
@@ -137,7 +138,7 @@ After the PR exists, invoke `$watch-pr` and follow it through its terminal crite
 
 Report:
 
-- each dependency's old and new versions;
+- each dependency's old and new versions plus the target-version release date;
 - material changelog changes and repository impact;
 - known issues and research limitations;
 - prior repository revert findings;
