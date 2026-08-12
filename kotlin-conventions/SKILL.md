@@ -15,6 +15,7 @@ Organize class contents in this order:
 2. Secondary constructors
 3. Method declarations
 4. Companion object
+5. Nested and inner class declarations
 
 Do not sort method declarations alphabetically or by visibility, and do not separate regular methods from extension methods. Group related code so that someone reading the class from top to bottom can follow its logic. Choose either higher-level-first or lower-level-first ordering and apply it consistently.
 
