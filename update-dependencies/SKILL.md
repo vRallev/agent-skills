@@ -113,6 +113,8 @@ Make the commit title identify the dependency or coherent dependency group and t
 
 Wrap dependency coordinates, code references, file paths, command names, and Gradle module or task paths such as `:abc:def` in backticks in both the commit body and the resulting PR description. Preserve official source URLs as usable Markdown links.
 
+Do not insert line breaks into commit bodies or PR descriptions to satisfy a maximum line length. Keep each prose paragraph or list item on one line, preserve intentional Markdown structure, and let GitHub or another rendering tool wrap text to the available width.
+
 Do not put routine verification commands in the commit body. The body must be useful as the PR description because `$create-or-update-pr` derives PR text from commits.
 
 ### 7. Create or update the PR

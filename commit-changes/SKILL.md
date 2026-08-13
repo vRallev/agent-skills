@@ -30,6 +30,7 @@ The description must:
 - Mention what changed only briefly, as context for understanding the reason.
 - Emphasize the problem solved, behavior enabled, risk reduced, or project/user benefit.
 - Wrap code references, file paths, command names, identifiers, and Gradle module or task paths such as `:abc:def` in backticks for Markdown rendering.
+- Do not insert line breaks to satisfy a maximum line length. Keep each prose paragraph or list item on one line, preserve intentional Markdown structure, and let the rendering tool wrap text to the available width.
 - Omit verification details such as tests, lint, formatting, or build commands.
 
 Pass backtick-containing messages as single-quoted shell arguments or through a message file to prevent command substitution. Use a non-interactive commit command, for example:

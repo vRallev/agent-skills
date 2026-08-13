@@ -23,6 +23,8 @@ Create or update the pull request for the current branch. New PRs must be drafts
 
 Format the PR body as Markdown. Wrap code references, file paths, command names, identifiers, and Gradle module or task paths such as `:abc:def` in backticks, including when deriving the body from existing commit descriptions. Apply this formatting to the PR body without amending the source commits. Pass backtick-containing bodies as single-quoted shell arguments, through a body file, or through a GitHub connector to prevent command substitution.
 
+Do not insert line breaks to satisfy a maximum line length. Keep each prose paragraph or list item on one line and let GitHub or another rendering tool wrap text to the available width. When deriving PR text from existing commit descriptions, join line breaks that were inserted only for line-length limits without amending the source commits. Preserve intentional Markdown structure, including paragraph breaks, headings, separate list items, blockquotes, fenced code blocks, and tables.
+
 If the branch has exactly one commit in the PR range:
 
 - Use the commit title as the PR title.

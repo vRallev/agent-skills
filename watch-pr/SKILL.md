@@ -41,6 +41,8 @@ Apply these additions while using `$address-pr-comments`:
 - **Ambiguous, conflicting, or risky suggestion:** Do not label uncertainty as unreasonable. Ask the user before editing or posting a speculative answer, as required by `$address-pr-comments`.
 - **Question:** Answer directly on GitHub when the answer is verified. Do not create a commit for a question-only response.
 
+For every commit description, do not insert line breaks to satisfy a maximum line length. Keep each prose paragraph or list item on one line, preserve intentional Markdown structure, and let the rendering tool wrap text to the available width.
+
 Never amend or force-push. Keep one commit per accepted reviewer request. Never resolve a review conversation unless the user explicitly asks.
 
 ## Completion
