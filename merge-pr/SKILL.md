@@ -49,6 +49,14 @@ Refresh live PR and base-branch protection on every loop and immediately before 
 
    Monitor the running command and keep the user informed. If a required check fails, inspect its linked GitHub Actions or Buildkite evidence on the exact head. Safely rerun an actually transient or infrastructure-related failure when supported. Make a narrowly scoped fix only when the failure, necessary change, and authorization are clear; otherwise report the concrete external or human blocker. Reinspect approvals and restart check monitoring whenever the head changes.
 
+## Resolve required review conversations
+
+If the effective rules for the PR's actual base branch require all review conversations to be resolved before merging, resolve **every unresolved review conversation on that PR without asking for additional permission**. Invoking this skill authorizes those resolutions as part of merging the PR; unresolved conversations alone are not a reason to stop.
+
+1. Fetch every page of the target PR's review threads, including outdated threads. Resolve each unresolved thread through GitHub's review-thread resolution API; leave already-resolved threads unchanged.
+2. Fetch all pages again immediately before merging or resubmitting to the merge queue and verify that no unresolved threads remain. Resolve any newly added or reopened threads under the same requirement. If a resolution fails, report the specific permission or API blocker rather than bypassing the requirement or claiming success.
+3. Keep conversation resolution separate from reviewer approval: resolving threads does not satisfy required approvals or authorize dismissing reviews. If conversation resolution is not required for merging, leave threads unchanged unless the user explicitly requests resolution.
+
 ## Resolve an actual merge conflict
 
 Treat `mergeable: CONFLICTING` or an explicitly verified base/head conflict as a conflict. `mergeable: UNKNOWN`, `mergeStateStatus: UNKNOWN`, and queue-related or protection-related `BLOCKED` states require a fresh read; they are not evidence of a conflict and must not trigger a speculative rebase.
@@ -81,7 +89,7 @@ When a real conflict exists:
 
 ## Submit and monitor until merged
 
-1. After live approval, required-check, conflict, and head-SHA checks all pass, submit the normal protected GitHub merge with `--match-head-commit "$HEAD_SHA"`. Never use `--admin`, disable a protection, delete a branch, or force a merge.
+1. After live approval, required-check, required-conversation-resolution, conflict, and head-SHA checks all pass, submit the normal protected GitHub merge with `--match-head-commit "$HEAD_SHA"`. Never use `--admin`, disable a protection, delete a branch, or force a merge.
 2. If the actual base branch requires a merge queue, let GitHub choose the queue merge method:
 
    ```bash
@@ -99,7 +107,7 @@ When a real conflict exists:
 
    Substitute `--rebase` or `--merge` only when that is the verified allowed or requested method. Do not claim success from the command exit code.
 4. Poll the same canonical PR, its exact head, required checks, auto-merge state, and merge-queue entry until `gh pr view` verifies `state: MERGED` and a non-null `mergedAt`. Use a persistent command session or the available task-wait mechanism, a measured polling interval, and regular concise progress updates; never abandon the loop merely because checks are pending or the PR is queued.
-5. If the queue rejects or removes the PR while it remains open and unmerged, return to the beginning of the loop. Refresh base movement, the head SHA, rules, approvals, required checks, and real mergeability; resolve any new actual conflict, wait for the new required CI, and submit again. Never blindly resubmit a PR that is already in the queue.
-6. Stop only when GitHub verifies the PR is fully `MERGED`, the user cancels, or further progress genuinely requires a missing human approval, unavailable permission, unresolved protected review conversation, an unpushable fork, or another action outside the user's authorization. Report any blocker precisely instead of presenting queued, pending, auto-merge-enabled, or rejected state as success.
+5. If the queue rejects or removes the PR while it remains open and unmerged, return to the beginning of the loop. Refresh base movement, the head SHA, rules, approvals, required checks, review conversations, and real mergeability; resolve any newly unresolved conversations when required, resolve any new actual conflict, wait for the new required CI, and submit again. Never blindly resubmit a PR that is already in the queue.
+6. Stop only when GitHub verifies the PR is fully `MERGED`, the user cancels, or further progress genuinely requires a missing human approval, unavailable permission (including permission to resolve required review conversations), an unpushable fork, or another action outside the user's authorization. Report any blocker precisely instead of presenting queued, pending, auto-merge-enabled, or rejected state as success.
 
 On success, report only the confirmed PR number, link, and merge time. Mention conflict resolution or queue retries only when they actually occurred.
