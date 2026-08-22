@@ -1,4 +1,4 @@
 interface:
   display_name: "Ready for Review"
-  short_description: "Rebase, squash, push, and resolve PR threads"
+  short_description: "Rebase, squash, sync commit and PR text, resolve threads"
   default_prompt: "Use $ready-for-review to prepare my current pull request for review."
