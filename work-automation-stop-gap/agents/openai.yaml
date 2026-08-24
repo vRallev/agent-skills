@@ -1,0 +1,3 @@
+interface:
+  display_name: "Work Automation Stop Gap"
+  short_description: "Gate work on laptop readiness and full-day OOO"
