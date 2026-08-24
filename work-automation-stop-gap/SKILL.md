@@ -17,13 +17,13 @@ The helper:
 
 - Checks immediately, then waits five minutes between unsuccessful checks.
 - Performs at most **60 checks total**, including the initial check, and enforces a **five-hour elapsed-time deadline**, including laptop sleep. With fast probes, check 60 occurs around 4 hours 55 minutes; do not add a 61st check to fill five hours.
-- Requires a successful local HTTPS connectivity probe and an explicitly unlocked, logged-in console session belonging to the user running the helper. A missing lock property or probe error does not mean unlocked.
+- Requires a successful local HTTPS connection to `https://openai.com` and an explicitly unlocked, logged-in console session belonging to the user running the helper. Any completed HTTP response is sufficient for connectivity; TLS verification remains enabled. A missing lock property or probe error does not mean unlocked.
 - Emits JSON progress and exits `0` with `status: laptop_ready` only when both conditions hold in the same check. This is not yet a pass for the full gate.
 - Exits nonzero with `status: stop` on exhaustion, deadline, interruption, or an unsupported platform. Cancel all remaining steps of this run.
 
-Use a resumable shell execution session, yielding promptly and polling that same process with waits of at most 60 seconds. The helper sleeps in chunks of at most 60 seconds. Preserve the session ID, original start time, deadline, and attempt count across context compaction; never restart a fresh five-hour budget for the same run. If execution cannot be resumed or the runtime cannot wait reliably, stop the remaining steps and report the limitation. Do not invent a scheduled retry or install a background service.
+If the shell runtime sandboxes access to local session state or the HTTPS probe, request its normal host/elevated approval on the initial helper launch before starting or yielding a resumable process. Do not begin the helper sandboxed and defer an approval request into later polling: losing that approval transport can destroy the resumable session after its five-hour budget has started. If launch approval is unavailable or fails, stop this run without starting the helper; do not bypass the sandbox.
 
-If the sandbox prevents reading local session state or making the HTTPS probe, use the runtime's normal approval flow. If approval is unavailable, stop; do not treat a permission failure as a successful check or bypass the sandbox. Never unlock the screen, keep the laptop awake, or change network settings.
+After any required launch approval succeeds, use one resumable shell execution session, yield promptly, and poll that same process with waits of at most 60 seconds. The helper sleeps in chunks of at most 60 seconds. Preserve the session ID, original start time, deadline, and attempt count across context compaction; never restart a fresh five-hour budget for the same run. If execution cannot be resumed or the runtime cannot wait reliably, stop the remaining steps and report the limitation. Do not invent a scheduled retry or install a background service. Never unlock the screen, keep the laptop awake, or change network settings.
 
 The helper's `--check` flag performs a single diagnostic check without waiting. Do not use this flag as a replacement for the production retry loop.
 

@@ -65,7 +65,15 @@ class SessionTests(unittest.TestCase):
 
 class ProbeTests(unittest.TestCase):
     def test_https_and_lock_must_both_pass(self):
-        for code, body, expected_online in ((0, "204", True), (0, "302", False), (6, "000", False)):
+        cases = (
+            (0, "200", True),
+            (0, "301", True),
+            (0, "503", True),
+            (0, "000", False),
+            (0, "invalid", False),
+            (6, "000", False),
+        )
+        for code, body, expected_online in cases:
             with self.subTest(code=code, body=body):
                 results = [
                     subprocess.CompletedProcess([], code, stdout=body),

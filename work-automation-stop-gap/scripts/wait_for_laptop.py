@@ -46,17 +46,26 @@ def probe_laptop():
                 "/usr/bin/curl", "-q", "--silent", "--show-error",
                 "--output", "/dev/null", "--write-out", "%{http_code}",
                 "--connect-timeout", "5", "--max-time", "10",
-                "--proto", "=https", "https://www.google.com/generate_204",
+                "--proto", "=https", "https://openai.com",
             ],
             capture_output=True,
             text=True,
             timeout=15,
             check=False,
         )
-        # Do not follow a captive-portal redirect or weaken TLS verification.
-        result["online"] = response.returncode == 0 and response.stdout.strip() == "204"
+        # Any real HTTP response proves HTTPS connectivity. Do not follow redirects,
+        # fail on HTTP errors, or weaken TLS verification.
+        status = response.stdout.strip()
+        result["online"] = (
+            response.returncode == 0
+            and len(status) == 3
+            and status.isdigit()
+            and status != "000"
+        )
         if not result["online"]:
-            result["errors"].append(f"HTTPS probe failed (curl exit {response.returncode})")
+            result["errors"].append(
+                f"HTTPS probe failed (curl exit {response.returncode}, status {status!r})"
+            )
     except (OSError, subprocess.SubprocessError) as error:
         result["errors"].append(f"HTTPS probe unavailable: {type(error).__name__}")
 
