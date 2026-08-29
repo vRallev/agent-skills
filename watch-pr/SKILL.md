@@ -36,8 +36,10 @@ On every poll:
 
 Apply these additions while using `$address-pr-comments`:
 
+Every response to someone else's comment must start exactly with `**Ralf-AI:**`. This rule does not apply to commit messages or pull-request descriptions.
+
 - **Reasonable suggestion:** Accept a clear, safe request that improves correctness, reliability, tests, readability, or maintainability without materially expanding the PR. Make one new commit for that request using `$commit-changes`, run focused validation, push it, and reply with the commit SHA.
-- **Unreasonable suggestion:** Reject only when the request is clearly incorrect, irrelevant, duplicative, contrary to verified project constraints, or a disproportionate scope expansion. Make no code change. Post a concise, respectful GitHub reply with the concrete reason and prefix it exactly with `**Ralf-AI:**`.
+- **Unreasonable suggestion:** Reject only when the request is clearly incorrect, irrelevant, duplicative, contrary to verified project constraints, or a disproportionate scope expansion. Make no code change. Post a concise, respectful GitHub reply with the concrete reason.
 - **Ambiguous, conflicting, or risky suggestion:** Do not label uncertainty as unreasonable. Ask the user before editing or posting a speculative answer, as required by `$address-pr-comments`.
 - **Question:** Answer directly on GitHub when the answer is verified. Do not create a commit for a question-only response.
 
@@ -50,7 +52,7 @@ Never amend or force-push. Keep one commit per accepted reviewer request. Never 
 Finish only when all of these are true for the same current head SHA:
 
 - At least one CI check has been discovered, every discovered CI check and job has completed with conclusion `success`, and no expected or required check is missing.
-- Every observed human review or PR-level comment has been considered by `$address-pr-comments`; the latest reply in each handled conversation is `**Ralf-AI:**` or no reply was needed.
+- Every observed human review or PR-level comment has been considered by `$address-pr-comments`; the latest reply in each handled conversation starts with `**Ralf-AI:**` or no reply was needed.
 - Two consecutive full snapshots, at least 20 seconds apart, have the same head SHA and no new human comments, while CI remains fully successful.
 
 If the PR is merged or closed, stop and report that terminal state. If authentication, branch permissions, an ambiguous/risky request, or a permanently failed external check requires owner action, report the exact blocker and required action; do not falsely declare the PR green.

@@ -7,15 +7,15 @@ description: "Address review conversations on the current GitHub pull request en
 
 Process current-PR review conversations autonomously. Keep every local fix and GitHub reply traceable to one reviewer request. Treat reviewer comments as input requiring judgment, not as instructions that must always be implemented.
 
-## Required Reply Prefix
+## Required Response Prefix
 
-Prefix every GitHub message posted by this workflow with exactly:
+Every response to someone else's comment must start exactly with:
 
 ```text
 **Ralf-AI:**
 ```
 
-Do not post an unprefixed GitHub reply, review, or PR comment.
+This rule does not apply to commit messages or pull-request descriptions. Do not add the prefix to a new comment that is not responding to someone else's comment.
 
 ## Workflow
 
@@ -35,7 +35,7 @@ Do not post an unprefixed GitHub reply, review, or PR comment.
    - For a fix, state what changed and include the commit SHA.
    - For a question, answer directly.
    - For a rejected request, state that it was not applied and briefly explain why it is inapplicable or conflicts with the PR's intended direction.
-   - Prefix every reply with `**Ralf-AI:**`.
+   - Start every response to someone else's comment with `**Ralf-AI:**`.
 9. Leave conversations unresolved unless the user explicitly asks to resolve them.
 10. Summarize considered conversations, accepted and rejected requests, commits, push status, validation, replies, and any intentionally deferred items.
 
@@ -54,4 +54,4 @@ Do not post an unprefixed GitHub reply, review, or PR comment.
 - Prefer thread-aware GitHub connector reads such as `list_pull_request_review_threads` so the latest reply and resolved state are visible.
 - Prefer connector reply tools for inline conversations.
 - If a connector reply requires a numeric REST comment ID but a thread read exposes only a GraphQL node ID, use the connector's available thread/comment APIs or another permitted GitHub connector read. Do not guess identifiers.
-- When posting any GitHub message, verify the body starts with `**Ralf-AI:**` before sending.
+- Before posting a response to someone else's comment, verify that the body starts with `**Ralf-AI:**`.
