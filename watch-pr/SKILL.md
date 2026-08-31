@@ -26,7 +26,7 @@ On every poll:
 
 1. Refresh PR state and the head SHA. If the head changed, discard the old CI result and restart green/quiet confirmation for the new head.
 2. Compare all review and PR-comment streams with the previous snapshot.
-3. When new human-authored feedback exists whose latest reply is not an existing `**Ralf-AI:**` response, run `$address-pr-comments` from `/Users/ralf/.codex/skills/address-pr-comments/SKILL.md` for the PR. Follow all of its safety, commit, validation, push, reply-prefix, and unresolved-thread rules, with the classification rules below.
+3. When new human-authored feedback exists whose latest reply is not an existing `**Ralf-AI:**` response, run `$address-pr-comments` from `/Users/ralf/.codex/skills/address-pr-comments/SKILL.md` for the PR. Follow all of its safety, commit, validation, push, GitHub-comment-prefix, and unresolved-thread rules, with the classification rules below.
 4. After `$address-pr-comments` finishes, refresh the head SHA, CI, and comments immediately. Any pushed commit or new comment resets green/quiet confirmation.
 5. Continue waiting while a current-head CI job is missing, queued, pending, in progress, stale, or has any conclusion other than `success`. Do not count skipped, neutral, cancelled, timed-out, or action-required jobs as successful.
 6. Address CI failures as they occur. Inspect each failing check or job enough to identify the concrete failure, implement the smallest appropriate fix for that individual failure, run focused validation, then use `$commit-changes` from `/Users/ralf/.codex/skills/commit-changes/SKILL.md` to create one commit for that failure before pushing. Keep each individual CI failure fix in its own commit.
@@ -36,7 +36,7 @@ On every poll:
 
 Apply these additions while using `$address-pr-comments`:
 
-Every response to someone else's comment must start exactly with `**Ralf-AI:**`. This rule does not apply to commit messages or pull-request descriptions.
+Every comment posted on GitHub during this workflow—including a top-level issue or pull-request comment, pull-request review body, new inline review comment, or reply—must start exactly with `**Ralf-AI:**`. Do not add this prefix to GitHub titles or pull-request descriptions.
 
 - **Reasonable suggestion:** Accept a clear, safe request that improves correctness, reliability, tests, readability, or maintainability without materially expanding the PR. Make one new commit for that request using `$commit-changes`, run focused validation, push it, and reply with the commit SHA.
 - **Unreasonable suggestion:** Reject only when the request is clearly incorrect, irrelevant, duplicative, contrary to verified project constraints, or a disproportionate scope expansion. Make no code change. Post a concise, respectful GitHub reply with the concrete reason.
