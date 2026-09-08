@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sync custom Codex skills and AGENTS.md with a Git repository."""
+"""Sync custom Codex skills and compose AGENTS.md from shared/private files."""
 
 from __future__ import annotations
 
@@ -28,6 +28,7 @@ SKIP_DIR_NAMES = {
 SKIP_FILE_NAMES = {".DS_Store"}
 REPO_AGENTS_FILE_NAME = "RALF_AGENTS.md"
 PERSONAL_AGENTS_FILE_NAME = "AGENTS.md"
+PRIVATE_AGENTS_FILE_NAME = "AGENTS.private.md"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -232,7 +233,7 @@ def replace_tree(source: Path, target: Path, dry_run: bool) -> None:
                 tmp_path.unlink()
 
 
-def replace_file(source: Path, target: Path, dry_run: bool) -> None:
+def replace_file_contents(contents: str, target: Path, dry_run: bool) -> None:
     if dry_run:
         return
 
@@ -240,15 +241,27 @@ def replace_file(source: Path, target: Path, dry_run: bool) -> None:
     file_descriptor, tmp_name = tempfile.mkstemp(
         prefix=f".{target.name}.sync-tmp-", dir=target.parent
     )
-    os.close(file_descriptor)
     tmp_path = Path(tmp_name)
 
     try:
-        shutil.copy2(source, tmp_path)
+        with os.fdopen(file_descriptor, "w", encoding="utf-8") as handle:
+            handle.write(contents)
+        if target.exists():
+            shutil.copymode(target, tmp_path)
         tmp_path.replace(target)
     finally:
         if os.path.lexists(tmp_path):
             tmp_path.unlink()
+
+
+def compose_agents_contents(shared_agents: Path, private_agents: Path | None) -> str:
+    fragments = [shared_agents.read_text(encoding="utf-8").strip()]
+    if private_agents is not None:
+        fragments.append(private_agents.read_text(encoding="utf-8").strip())
+    nonempty_fragments = [fragment for fragment in fragments if fragment]
+    if not nonempty_fragments:
+        return ""
+    return "\n\n".join(nonempty_fragments) + "\n"
 
 
 def default_home_skills_dir() -> Path:
@@ -273,57 +286,60 @@ def sync_agents_file(
     if not repo_agents.is_file():
         raise ValueError(f"Repository path is not a file: {repo_agents}")
 
-    personal_agents = home_skills_dir.parent / PERSONAL_AGENTS_FILE_NAME
-    rel_path = Path(REPO_AGENTS_FILE_NAME)
+    codex_home = home_skills_dir.parent
+    personal_agents = codex_home / PERSONAL_AGENTS_FILE_NAME
+    private_agents = codex_home / PRIVATE_AGENTS_FILE_NAME
 
-    if not personal_agents.exists():
-        print(
-            f"[copy] {PERSONAL_AGENTS_FILE_NAME}: missing in Codex home, "
-            f"{REPO_AGENTS_FILE_NAME} -> {PERSONAL_AGENTS_FILE_NAME}"
-        )
-        replace_file(repo_agents, personal_agents, args.dry_run)
-        return 1, 0, 0, 1
-
-    if not personal_agents.is_file():
+    if personal_agents.exists() and not personal_agents.is_file():
         raise ValueError(f"Personal path is not a file: {personal_agents}")
 
-    if file_hash(repo_agents) == file_hash(personal_agents):
-        print(f"[same] {PERSONAL_AGENTS_FILE_NAME}: contents match")
+    if private_agents.exists() and not private_agents.is_file():
+        raise ValueError(f"Private path is not a file: {private_agents}")
+
+    fragments_match = (
+        private_agents.exists()
+        and file_hash(repo_agents) == file_hash(private_agents)
+    )
+    if fragments_match and personal_agents.exists():
+        print(
+            f"[pending] {PERSONAL_AGENTS_FILE_NAME}: "
+            f"{REPO_AGENTS_FILE_NAME} and {PRIVATE_AGENTS_FILE_NAME} still "
+            "match; leaving the active file unchanged until they are split"
+        )
         return 0, 1, 0, 1
 
-    repo_ts = latest_repo_commit_ts(repo, rel_path)
-    personal_ts = personal_agents.stat().st_mtime
-    repo_dirty = repo_path_is_dirty(repo, rel_path)
-
-    if args.verbose:
-        print(
-            f"[info] {PERSONAL_AGENTS_FILE_NAME}: repo={fmt_ts(repo_ts)}, "
-            f"personal={fmt_ts(personal_ts)} ({personal_agents})"
-        )
-
-    if repo_ts is None or personal_ts > repo_ts:
-        if repo_dirty and not args.allow_dirty_repo_overwrite:
+    if not private_agents.exists() and personal_agents.exists():
+        shared_contents = compose_agents_contents(repo_agents, None)
+        personal_contents = personal_agents.read_text(encoding="utf-8")
+        if personal_contents != shared_contents:
             print(
-                f"[skip] {PERSONAL_AGENTS_FILE_NAME}: personal file is newer, "
-                f"but repository {REPO_AGENTS_FILE_NAME} has uncommitted "
-                "changes. Re-run with --allow-dirty-repo-overwrite to replace "
-                "the repository copy."
+                f"[skip] {PERSONAL_AGENTS_FILE_NAME}: "
+                f"{PRIVATE_AGENTS_FILE_NAME} is missing and the active file "
+                "contains other content; create the private fragment before "
+                "generating the combined file"
             )
             return 0, 0, 1, 1
-        print(
-            f"[copy] {PERSONAL_AGENTS_FILE_NAME}: personal file newer "
-            f"({fmt_ts(personal_ts)} > {fmt_ts(repo_ts)}), "
-            f"{PERSONAL_AGENTS_FILE_NAME} -> {REPO_AGENTS_FILE_NAME}"
-        )
-        replace_file(personal_agents, repo_agents, args.dry_run)
-        return 1, 0, 0, 1
 
-    print(
-        f"[copy] {PERSONAL_AGENTS_FILE_NAME}: repository file current "
-        f"({fmt_ts(repo_ts)} >= {fmt_ts(personal_ts)}), "
-        f"{REPO_AGENTS_FILE_NAME} -> {PERSONAL_AGENTS_FILE_NAME}"
+    combined_contents = compose_agents_contents(
+        repo_agents,
+        private_agents if private_agents.exists() and not fragments_match else None,
     )
-    replace_file(repo_agents, personal_agents, args.dry_run)
+    if personal_agents.exists():
+        personal_contents = personal_agents.read_text(encoding="utf-8")
+        if personal_contents == combined_contents:
+            print(f"[same] {PERSONAL_AGENTS_FILE_NAME}: composed contents match")
+            return 0, 1, 0, 1
+
+    private_source = (
+        f" and {PRIVATE_AGENTS_FILE_NAME}"
+        if private_agents.exists() and not fragments_match
+        else ""
+    )
+    print(
+        f"[generate] {PERSONAL_AGENTS_FILE_NAME}: composing "
+        f"{REPO_AGENTS_FILE_NAME}{private_source}"
+    )
+    replace_file_contents(combined_contents, personal_agents, args.dry_run)
     return 1, 0, 0, 1
 
 
@@ -416,8 +432,8 @@ def sync(args: argparse.Namespace) -> int:
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Sync custom Codex skill directories and personal AGENTS.md "
-            "between a Git repository and Codex home."
+            "Sync custom Codex skill directories and generate personal "
+            "AGENTS.md from shared and private fragments."
         )
     )
     parser.add_argument("repo", help="Path to the Git repository containing skills")
@@ -426,7 +442,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         default=str(default_home_skills_dir()),
         help=(
             "Personal skills directory. Defaults to $CODEX_HOME/skills or "
-            "~/.codex/skills. AGENTS.md is resolved as a sibling."
+            "~/.codex/skills. AGENTS.md and AGENTS.private.md are resolved "
+            "as siblings."
         ),
     )
     parser.add_argument(
@@ -438,8 +455,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "--allow-dirty-repo-overwrite",
         action="store_true",
         help=(
-            "Allow a newer personal skill or AGENTS.md to overwrite its dirty "
-            "repository counterpart."
+            "Allow a newer personal skill to overwrite its dirty repository "
+            "counterpart."
         ),
     )
     parser.add_argument(

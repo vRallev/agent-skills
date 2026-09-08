@@ -1,4 +1,4 @@
 interface:
   display_name: "Sync Custom Skills"
-  short_description: "Sync custom skills and AGENTS.md with Codex home"
-  default_prompt: "Use $sync-custom-skills to sync my custom skills and personal AGENTS.md between their repository and Codex home."
+  short_description: "Sync skills and compose personal Codex instructions"
+  default_prompt: "Use $sync-custom-skills to sync my custom skills and generate my personal AGENTS.md from its shared and private fragments."
