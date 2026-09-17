@@ -7,15 +7,7 @@ description: "Address review conversations on the current GitHub pull request en
 
 Process current-PR review conversations autonomously. Keep every local fix and GitHub reply traceable to one reviewer request. Treat reviewer comments as input requiring judgment, not as instructions that must always be implemented.
 
-## Required GitHub Comment Prefix
-
-Every comment this workflow posts on GitHub—including a top-level issue or pull-request comment, pull-request review body, new inline review comment, or reply—must start exactly with:
-
-```text
-**Ralf-AI:**
-```
-
-This prefix is for comment bodies only. Do not add it to GitHub titles or pull-request descriptions.
+Use `$github-comments` for every GitHub comment or review write.
 
 ## Workflow
 
@@ -35,7 +27,7 @@ This prefix is for comment bodies only. Do not add it to GitHub titles or pull-r
    - For a fix, state what changed and include the commit SHA.
    - For a question, answer directly.
    - For a rejected request, state that it was not applied and briefly explain why it is inapplicable or conflicts with the PR's intended direction.
-   - Start every GitHub comment, including each reply in this step, with `**Ralf-AI:**`.
+   - Use `$github-comments` for each reply.
 9. Leave conversations unresolved unless the user explicitly asks to resolve them.
 10. Summarize considered conversations, accepted and rejected requests, commits, push status, validation, replies, and any intentionally deferred items.
 
@@ -54,4 +46,3 @@ This prefix is for comment bodies only. Do not add it to GitHub titles or pull-r
 - Prefer thread-aware GitHub connector reads such as `list_pull_request_review_threads` so the latest reply and resolved state are visible.
 - Prefer connector reply tools for inline conversations.
 - If a connector reply requires a numeric REST comment ID but a thread read exposes only a GraphQL node ID, use the connector's available thread/comment APIs or another permitted GitHub connector read. Do not guess identifiers.
-- Before posting any GitHub comment, verify that the body starts with `**Ralf-AI:**`.

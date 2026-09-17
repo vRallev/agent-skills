@@ -1,0 +1,4 @@
+interface:
+  display_name: "GitHub Comments"
+  short_description: "Post attributed GitHub comments and reviews"
+  default_prompt: "Use $github-comments to post this comment on GitHub with the required attribution."
