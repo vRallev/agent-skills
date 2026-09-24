@@ -48,6 +48,22 @@ Commit 2 description
 - Use each commit's body as the section description.
 - If a commit has no useful body, generate a concise why-focused description from that commit's patch.
 
+### PR Stacks
+
+When creating or updating a PR stack, apply these rules to every PR:
+
+- Prefix the title with its one-based position and the total number of PRs, for example `(7/7) This is the title`.
+- Add a `## Stack` section to the body. List every PR from tip to base, mark the current PR with `__->__`, and wrap the section in `codex-pr-stack` comments:
+
+```markdown
+<!-- codex-pr-stack:start -->
+## Stack
+* #123
+* __->__ #122
+* #121
+<!-- codex-pr-stack:end -->
+```
+
 ## Draft Safety
 
 - When creating a new PR, always pass the draft option, such as `--draft` with `gh pr create` or `draft: true` with the GitHub connector.
