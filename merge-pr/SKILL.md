@@ -1,11 +1,11 @@
 ---
 name: merge-pr
-description: Merge a GitHub pull request identified explicitly or unambiguously from context, and continue until GitHub confirms it is fully merged. Use when the user asks to merge a PR, finish merging a PR, resolve merge conflicts and merge, wait for required CI, or monitor and retry a merge queue. Verify the actual required reviewer approvals and required CI checks, ignore non-required CI failures, safely rebase and force-push conflicted PR branches, and retry rejected merge-queue entries without running full local builds.
+description: Merge a GitHub pull request or PR stack identified explicitly or unambiguously from context, and continue until GitHub confirms it is fully merged. Use when the user asks to merge a PR, finish merging a PR, resolve merge conflicts and merge, wait for required CI, or monitor and retry a merge queue. Verify the actual required reviewer approvals and required CI checks, ignore non-required CI failures, safely rebase and force-push conflicted PR branches, and retry rejected merge-queue entries without running full local builds.
 ---
 
 # Merge PR
 
-Own one pull request from the user's request until GitHub reports `MERGED`. Submission, auto-merge, a successful merge command, and entry into a merge queue are intermediate states, not completion.
+Own the requested pull request and any required stack members until GitHub reports each one as `MERGED`. Submission, auto-merge, a successful merge command, and entry into a merge queue are intermediate states, not completion.
 
 ## Resolve the pull request and rename the task
 
@@ -19,6 +19,17 @@ Own one pull request from the user's request until GitHub reports `MERGED`. Subm
    Omit `--repo` only for the initial, unambiguous current-repository discovery. Once the canonical repository is known, pass `--repo "$REPO"` to every subsequent PR command.
 3. Find and call the available Codex `set_thread_title` tool to rename the **current** task to exactly `Merge PR_NUMBER`; for example, `Merge 12345`. Use `codex_app__set_thread_title({"title":"Merge 12345"})` when available. Do not create another task or rename an unrelated task. If the title tool is unavailable, continue the merge workflow and disclose the limitation in the final response.
 4. If GitHub already reports `MERGED`, report the verified PR number, link, and merge time and finish. A closed, unmerged PR, a draft, unavailable permissions, or an ambiguous repository is a real blocker; report it rather than reopening, marking ready, bypassing protections, or guessing.
+
+## Merge a pull request stack
+
+Before checking merge requirements, determine whether the requested PR belongs to a stack. Verify the complete live stack and its base-to-tip order from the PR base and head branches; treat a PR-body stack list only as a discovery hint.
+
+- If the requested PR is the tip, the merge set is the whole stack. Make every PR in the stack satisfy all requirements in this skill before enqueueing any of them. Enqueue the whole stack with the repository's stack-aware operation. Never enqueue or merge only part of it.
+- If the requested PR is below the tip, the merge set is the requested PR and every dependency below it toward the base. Do not enqueue PRs above the requested PR.
+- Apply every readiness, repair, queue-retry, monitoring, and completion rule in this skill to every PR in the merge set. Do not finish until GitHub reports every PR in the merge set as `MERGED`.
+- If enqueueing or merging fails, keep the same merge set, fix the blockers, and retry it. Never shrink the merge set to bypass a blocker.
+- If any PR in the merge set needs a rebase or restack, rebase and push the whole stack from base to tip, including PRs above the requested PR. Preserve the per-head safety checks and force-with-lease rules below, then refresh the merge set's heads, approvals, required checks, conversations, and mergeability before enqueueing it.
+- If no stack-aware enqueue operation is available, stop and report that blocker instead of risking a partial-stack merge.
 
 ## Check the actual merge requirements
 
@@ -110,4 +121,4 @@ When a real conflict exists:
 5. If the queue rejects or removes the PR while it remains open and unmerged, return to the beginning of the loop. Refresh base movement, the head SHA, rules, approvals, required checks, review conversations, and real mergeability; resolve any newly unresolved conversations when required, resolve any new actual conflict, wait for the new required CI, and submit again. Never blindly resubmit a PR that is already in the queue.
 6. Stop only when GitHub verifies the PR is fully `MERGED`, the user cancels, or further progress genuinely requires a missing human approval, unavailable permission (including permission to resolve required review conversations), an unpushable fork, or another action outside the user's authorization. Report any blocker precisely instead of presenting queued, pending, auto-merge-enabled, or rejected state as success.
 
-On success, report only the confirmed PR number, link, and merge time. Mention conflict resolution or queue retries only when they actually occurred.
+On success, report only the confirmed PR numbers, links, and merge times. Mention conflict resolution or queue retries only when they actually occurred.
