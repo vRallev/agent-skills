@@ -1,11 +1,11 @@
 ---
 name: kotlin-conventions
-description: Apply personal Kotlin structure and style conventions. Use whenever creating, editing, refactoring, or reviewing Kotlin .kt or .kts files.
+description: Apply personal Kotlin structure and style conventions. Use when you create, edit, refactor, or review Kotlin .kt or .kts files.
 ---
 
 # Kotlin Conventions
 
-Apply these conventions unless another rule explicitly overrides them.
+Unless another rule explicitly overrides these conventions, apply them.
 
 ## Class Layout
 
@@ -17,11 +17,11 @@ Organize class contents in this order:
 4. Companion object
 5. Nested and inner class declarations
 
-Do not sort method declarations alphabetically or by visibility, and do not separate regular methods from extension methods. Group related code so that someone reading the class from top to bottom can follow its logic. Choose either higher-level-first or lower-level-first ordering and apply it consistently.
+Do not sort methods alphabetically or by visibility. Keep regular methods and extension methods together. Group related code so readers can follow the class from top to bottom. Choose either higher-level-first or lower-level-first order. Use that order consistently.
 
 ### One Top-Level Class Per File
 
-Prefer one top-level class per file. Create additional files when necessary.
+Prefer one top-level class per file. If needed, create additional files.
 
 Prefer:
 
@@ -49,9 +49,9 @@ class Class2 {}
 
 ## KDoc
 
-Add KDoc only when it gives callers information beyond the declaration and its types. Explain the API intent, how to use it, its observable behavior, and non-obvious edge cases.
+Use KDoc only for caller information beyond the declaration and its types. Explain the API's intent, use, observable behavior, and non-obvious edge cases.
 
-Do not document requirements, architectural goals, encapsulation constraints, implementation details, or design justifications that do not help callers use the API.
+If requirements, architectural goals, encapsulation constraints, implementation details, or design reasons do not help callers use the API, omit them.
 
 Prefer:
 
@@ -77,7 +77,7 @@ Prefer lambdas over method references. For example, use `abc.doSomething { it.ab
 
 ## Inline Unshared Constants
 
-Do not extract constants merely for the sake of extraction. Inline values that are not shared.
+Do not extract constants without a reason. If a value is not shared, keep it inline.
 
 Do:
 
@@ -89,7 +89,7 @@ class Class1 {
 }
 ```
 
-Don't:
+Do not use:
 
 ```kotlin
 class Class1 {
@@ -103,7 +103,7 @@ private const val TEST_MESSAGE = "Test"
 
 ## Smallest Possible Scope
 
-Use the smallest possible scope for language constructs. For example, nest an extension function used by only one class inside that class rather than declaring it as a private top-level function next to the class.
+Use the smallest possible scope for language constructs. If only one class uses an extension function, nest it inside that class. Do not declare it as a private top-level function next to the class.
 
 For an extension function used by one class, do:
 
@@ -117,7 +117,7 @@ class Class1 {
 }
 ```
 
-Don't:
+Do not use:
 
 ```kotlin
 class Class1 {
@@ -147,7 +147,7 @@ class Class1 {
 }
 ```
 
-Don't:
+Do not use:
 
 ```kotlin
 class Class1 {

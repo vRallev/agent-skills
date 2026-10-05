@@ -1,6 +1,6 @@
 ---
 name: update-commit-message
-description: Inspect the current Git HEAD commit and rewrite its commit message with a clear title and why-focused description. Use when the user invokes update-commit-message or asks to improve, rewrite, or amend the most recent commit message without changing the commit contents.
+description: Rewrite the current Git HEAD commit message with a clear title and a description that explains why the change matters. Use when the user invokes update-commit-message or asks to improve, rewrite, or amend the latest commit message without changing the commit's contents.
 ---
 
 # Update Commit Message
@@ -9,27 +9,27 @@ Rewrite the message for the current `HEAD` commit without changing its contents.
 
 ## Workflow
 
-1. Confirm the repository, branch, and working-tree state with `git status --short --branch --untracked-files=all`.
+1. Confirm the repository, branch, and working tree with `git status --short --branch --untracked-files=all`.
 2. Inspect the current commit with `git show --stat --summary HEAD`, `git show --format=fuller --no-patch HEAD`, and `git show --format= HEAD`.
-3. Use the patch, current agent conversation, and recent repository context to understand what changed and why. Inspect nearby code or preceding commits when the commit alone is insufficient.
-4. Check whether `HEAD` is already contained in an upstream or remote-tracking branch. If amending would rewrite published history, ask the user for explicit approval before changing the commit.
+3. Use the patch, conversation, and recent repository context to understand the change and its purpose. If the commit is not enough, inspect nearby code or preceding commits.
+4. Check whether an upstream or remote-tracking branch contains `HEAD`. If an amendment would rewrite published history, get explicit user approval before changing the commit.
 5. Amend only the commit message. Do not stage local changes or alter the committed contents.
-6. Confirm the new commit SHA and report whether local changes remain.
+6. Confirm the new commit SHA. Report any remaining local changes.
 
 ## Commit Message
 
-Write a concise imperative title followed by a description paragraph or short bullet list.
+Write a short imperative title. Follow it with a description paragraph or short bullet list.
 
 The description must:
 
-- Explain why the change is important or helpful; prioritize the "why" over the "what".
-- Mention what changed only briefly, as context for understanding the reason.
-- Emphasize the problem solved, behavior enabled, risk reduced, or project/user benefit.
-- Wrap code references, file paths, command names, identifiers, and Gradle module or task paths such as `:abc:def` in backticks for Markdown rendering.
-- Do not insert line breaks to satisfy a maximum line length. Keep each prose paragraph or list item on one line, preserve intentional Markdown structure, and let the rendering tool wrap text to the available width.
+- Explain why the change matters. Focus on its purpose rather than its contents.
+- Briefly describe the change to give context.
+- Emphasize the problem solved, behavior enabled, risk reduced, or benefit to the project or user.
+- Wrap code references, file paths, commands, identifiers, and Gradle module or task paths such as `:abc:def` in backticks.
+- Keep each prose paragraph or list item on one line. Preserve intentional Markdown structure. Let the renderer wrap text; do not add line breaks to meet a line limit.
 - Omit verification details such as tests, lint, formatting, or build commands.
 
-Pass backtick-containing messages as single-quoted shell arguments or through a message file to prevent command substitution. Use a non-interactive amend command, for example:
+If a message contains backticks, use single-quoted shell arguments or a message file to prevent command substitution. Use a non-interactive amend command:
 
 ```bash
 git commit --amend -m 'Concise imperative title' -m 'Explain why the change is important or helpful. Mention what changed only as needed for context, and wrap references like `FormatCommand` and `:abc:def` in backticks.'

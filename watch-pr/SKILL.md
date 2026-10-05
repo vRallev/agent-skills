@@ -1,6 +1,6 @@
 ---
 name: watch-pr
-description: "Monitor a GitHub pull request until every CI check on its current head is successful and reviewer feedback has stopped arriving. Use when the user asks to watch, monitor, babysit, or wait on a PR; poll every 20 seconds in the current task, address CI failures as they occur, invoke $address-pr-comments for review feedback, use $commit-changes for each individual CI failure fix or accepted reviewer request, push commits, and continue until the PR is stably green and quiet."
+description: "Monitor a GitHub PR until every current-head CI check succeeds and reviewer feedback stops arriving. Use when asked to watch, monitor, babysit, or wait on a PR. Poll every 20 seconds in the current task. Address CI failures as they occur. Use $address-pr-comments for feedback and $commit-changes for each CI fix or accepted reviewer request. Push commits. Continue until CI stays green and feedback stays quiet."
 ---
 
 # Watch PR
@@ -9,52 +9,63 @@ Monitor one pull request through CI and review feedback. Do not merge the PR.
 
 ## Setup
 
-1. Resolve the supplied PR URL or number, repository, head branch, and current head SHA. If no PR is supplied, resolve the open PR for the current branch; ask only if the result is missing or ambiguous.
-2. Confirm write access to the PR branch and use a checkout whose current branch maps to that PR. Preserve unrelated local changes; use a separate worktree when switching would disturb them.
-3. Prefer thread-aware GitHub connector reads. Use `gh` when connector coverage is insufficient and authentication permits it.
+1. Resolve the supplied PR URL or number, repository, head branch, and current head SHA. If no PR is supplied, find the current branch's open PR. If the result is missing or ambiguous, ask the user.
+2. Confirm write access to the PR branch. Use a checkout whose current branch maps to that PR. Preserve unrelated local changes. If switching would disturb them, use a separate worktree.
+3. Prefer GitHub connector reads that include review threads. If connector coverage is insufficient and authentication permits, use `gh`.
 4. Take an initial machine-readable snapshot of:
    - every CI check and job for the current head SHA,
    - inline review threads and all comments in each thread,
    - PR reviews and PR-level conversation comments.
-5. Record stable comment identifiers or timestamps so later snapshots detect newly posted feedback, including replies to previously handled threads.
+5. Record stable comment identifiers or timestamps. Use them to detect new feedback, including replies to previously handled threads.
 
-## Monitoring Loop
+## Monitoring loop
 
-Remain in the current active task and wait 20 seconds between polls. Do not create or schedule an automation, heartbeat, reminder, follow-up task, or background monitor.
+Remain in the current active task. Wait 20 seconds between polls. Do not create or schedule an automation, heartbeat, reminder, follow-up task, or background monitor.
 
 On every poll:
 
-1. Refresh PR state and the head SHA. If the head changed, discard the old CI result and restart green/quiet confirmation for the new head.
-2. Compare all review and PR-comment streams with the previous snapshot.
-3. When new human-authored feedback exists whose latest reply is not an existing `**Ralf-AI:**` response, run `$address-pr-comments` for the PR. Follow all of its safety, commit, validation, push, and unresolved-thread rules, with the classification rules below.
-4. After `$address-pr-comments` finishes, refresh the head SHA, CI, and comments immediately. Any pushed commit or new comment resets green/quiet confirmation.
-5. Continue waiting while a current-head CI job is missing, queued, pending, in progress, stale, or has any conclusion other than `success`. Do not count skipped, neutral, cancelled, timed-out, or action-required jobs as successful.
-6. Address CI failures as they occur. Inspect each failing check or job enough to identify the concrete failure, implement the smallest appropriate fix for that individual failure, run focused validation, then use `$commit-changes` to create one commit for that failure before pushing. Keep each individual CI failure fix in its own commit.
-7. If a CI failure is transient, infrastructure-owned, externally blocked, unrelated to the PR, or unsafe to fix without more context, report the blocker and continue monitoring instead of making a speculative change.
+1. Refresh PR state and the head SHA. If the head changed:
 
-## Feedback Classification
+   - Discard the old CI result.
+   - Restart green/quiet confirmation for the new head.
+
+2. Compare all review and PR-comment streams with the previous snapshot.
+3. If new human feedback has no existing `**Ralf-AI:**` response as its latest reply, run `$address-pr-comments` for the PR. Follow all its safety, commit, validation, push, and unresolved-thread rules. Apply the classification rules below.
+4. After `$address-pr-comments` finishes, immediately refresh the head SHA, CI, and comments. Any pushed commit or new comment resets green/quiet confirmation.
+5. While a current-head CI job is missing, queued, pending, running, stale, or has a conclusion other than `success`, continue waiting. Do not count skipped, neutral, cancelled, timed-out, or action-required jobs as successful.
+6. Address each CI failure as it occurs:
+   - Inspect the failing check or job to identify the concrete failure.
+   - Implement the smallest appropriate fix for that failure.
+   - Run focused validation.
+   - Use `$commit-changes` to create one commit for that failure.
+   - Push the commit.
+
+   Keep each CI failure fix in its own commit.
+7. If a failure is transient, caused by infrastructure, externally blocked, unrelated to the PR, or unsafe to fix without more context, report the blocker. Continue monitoring. Do not make a speculative change.
+
+## Feedback classification
 
 Apply these additions while using `$address-pr-comments`:
 
 Use `$github-comments` for every GitHub comment or review write.
 
-- **Reasonable suggestion:** Accept a clear, safe request that improves correctness, reliability, tests, readability, or maintainability without materially expanding the PR. Make one new commit for that request using `$commit-changes`, run focused validation, push it, and reply with the commit SHA.
+- **Reasonable suggestion:** Accept a clear, safe request that improves correctness, reliability, tests, readability, or maintainability without materially expanding the PR. Use `$commit-changes` to make one new commit for that request. Run focused validation. Push it. Reply with the commit SHA.
 - **Unreasonable suggestion:** Reject only when the request is clearly incorrect, irrelevant, duplicative, contrary to verified project constraints, or a disproportionate scope expansion. Make no code change. Post a concise, respectful GitHub reply with the concrete reason.
-- **Ambiguous, conflicting, or risky suggestion:** Do not label uncertainty as unreasonable. Ask the user before editing or posting a speculative answer, as required by `$address-pr-comments`.
+- **Ambiguous, conflicting, or risky suggestion:** Do not label uncertainty as unreasonable. Before editing or posting a speculative answer, ask the user as required by `$address-pr-comments`.
 - **Question:** Answer directly on GitHub when the answer is verified. Do not create a commit for a question-only response.
 
-For every commit description, do not insert line breaks to satisfy a maximum line length. Keep each prose paragraph or list item on one line, preserve intentional Markdown structure, and let the rendering tool wrap text to the available width.
+For every commit description, do not add line breaks to meet a maximum line length. Keep each prose paragraph or list item on one line. Preserve intentional Markdown structure. Let the rendering tool wrap the text.
 
-Never amend or force-push. Keep one commit per accepted reviewer request. Never resolve a review conversation unless the user explicitly asks.
+Never amend or force-push. Keep one commit per accepted reviewer request. Unless the user explicitly asks, never resolve a review conversation.
 
 ## Completion
 
 Finish only when all of these are true for the same current head SHA:
 
-- At least one CI check has been discovered, every discovered CI check and job has completed with conclusion `success`, and no expected or required check is missing.
-- Every observed human review or PR-level comment has been considered by `$address-pr-comments`; the latest reply in each handled conversation starts with `**Ralf-AI:**` or no reply was needed.
+- At least one CI check has been discovered. Every discovered check and job has completed with conclusion `success`. No expected or required check is missing.
+- `$address-pr-comments` has considered every observed human review or PR-level comment. Each handled conversation's latest reply starts with `**Ralf-AI:**`, or no reply was needed.
 - Two consecutive full snapshots, at least 20 seconds apart, have the same head SHA and no new human comments, while CI remains fully successful.
 
-If the PR is merged or closed, stop and report that terminal state. If authentication, branch permissions, an ambiguous/risky request, or a permanently failed external check requires owner action, report the exact blocker and required action; do not falsely declare the PR green.
+If the PR is merged or closed, stop. Report that terminal state. If authentication, branch permissions, an ambiguous or risky request, or a permanently failed external check requires owner action, report the exact blocker and required action. Do not falsely declare the PR green.
 
-Give a concise final handoff with the final head SHA, CI result, handled and rejected feedback, commits pushed, validation run, replies posted, and any remaining manual action.
+Give a concise final report with the final head SHA, CI result, handled and rejected feedback, commits pushed, validation run, replies posted, and remaining manual action.

@@ -1,6 +1,6 @@
 ---
 name: git-local-branches-summary
-description: Refresh a Git repository and conservatively identify local branches whose work is already present in the remote default branch, including direct ancestors and patch-equivalent rebases or cherry-picks. Use when cleaning up local branches after pull requests merge, checking branches with deleted or gone upstreams, or auditing which local branches can be removed without losing unique commits; always flag attached worktrees and never delete branches unless explicitly asked.
+description: Refresh a Git repository and conservatively identify local branches whose work is already in the remote default branch. Check direct ancestors and patch-equivalent rebases or cherry-picks. Use to clean up local branches after pull requests merge, check branches with deleted or gone upstreams, or find branches that can be removed without losing unique commits. Always flag attached worktrees. Delete branches only when the user explicitly asks.
 ---
 
 # Git Local Branches Summary
@@ -14,7 +14,9 @@ description: Refresh a Git repository and conservatively identify local branches
    git -C <repo> fetch --prune
    ```
 
-   Preserve all staged and unstaged work. If sandboxing blocks Git metadata, rerun the same command with approval. If the refresh fails, stop and report the exact failure instead of auditing stale refs.
+   Preserve all staged and unstaged work.
+   If sandboxing blocks Git metadata, rerun the same command with approval.
+   If the refresh fails, stop the audit. Report the exact failure.
 
 3. Run the bundled read-only audit:
 
@@ -22,23 +24,25 @@ description: Refresh a Git repository and conservatively identify local branches
    bash scripts/summarize_local_branches.sh <repo> [base-ref]
    ```
 
-   Omit `base-ref` to prefer `origin/HEAD`, then `origin/main`, then `origin/master`.
-4. Report `direct-ancestor` and `patch-equivalent` rows as content-safe cleanup candidates. Explain the evidence for each.
-5. Highlight every attached worktree, its path, and whether it is clean. A checked-out branch cannot be deleted until its worktree is removed or detached; a dirty worktree requires explicit user review.
-6. Report that `retain` and `manual-review` rows are not safe automatic cleanup candidates. Include their unique-patch or merge-commit counts.
+   If you omit `base-ref`, prefer `origin/HEAD`, then `origin/main`, then `origin/master`.
+4. Report `direct-ancestor` and `patch-equivalent` rows as cleanup candidates with no unique content. Explain the evidence for each row.
+5. Highlight each attached worktree, its path, and whether it is clean. A checked-out branch cannot be deleted until its worktree is removed or detached. If a worktree is dirty, require explicit user review.
+6. Report `retain` and `manual-review` rows as unsafe for automatic cleanup. Include their unique-patch or merge-commit counts.
 
 ## Classification Rules
 
-- `direct-ancestor`: the local tip is an ancestor of the refreshed base ref.
-- `patch-equivalent`: the branch is not an ancestor, has no unique `git cherry` patches, and contains no merge commits outside the base. This covers ordinary rebases and cherry-picks with unchanged patches.
-- `retain`: at least one patch is not represented in the base.
-- `manual-review`: merge commits make patch-ID analysis insufficient.
+- `direct-ancestor`: The local tip is an ancestor of the refreshed base ref.
+- `patch-equivalent`: The branch is not an ancestor. It has no unique `git cherry` patches or merge commits outside the base. This includes ordinary rebases and cherry-picks with unchanged patches.
+- `retain`: At least one patch is absent from the base.
+- `manual-review`: Merge commits prevent a reliable decision from patch IDs alone.
 
-Treat squash merges whose patch IDs changed as unproven, not safe. Never infer safety merely from a missing remote or `[gone]` upstream.
+If a squash merge changed patch IDs, treat its content safety as unproven. A missing remote or `[gone]` upstream does not prove safety.
 
 ## Safety
 
-- Do not delete branches, remove worktrees, detach worktrees, or use `git branch -D` unless the user explicitly requests it.
+- Delete branches only when the user explicitly asks.
+- Remove or detach worktrees only when the user explicitly asks.
+- Use `git branch -D` only when the user explicitly asks.
 - Exclude local `main` and `master` from cleanup candidates.
-- Distinguish content safety from deletion mechanics: Git may reject `git branch -d` for a patch-equivalent branch even though its patch is present upstream.
-- If refresh fails, report the exact failure and label any subsequent audit as based on stale refs.
+- Distinguish content safety from deletion mechanics. Git can reject `git branch -d` for a patch-equivalent branch even when its patch is present upstream.
+- If the refresh fails, report the exact failure. Label any subsequent audit as based on stale refs.

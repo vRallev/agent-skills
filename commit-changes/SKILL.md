@@ -1,39 +1,39 @@
 ---
 name: commit-changes
-description: Inspect and understand the current Git working tree, then commit its staged and unstaged local changes with a clear title and why-focused description. Use whenever the user asks to commit changes, commit this work, create a git commit, or perform the commit portion of a larger push, pull-request, publish, or yeet workflow. For requests that also ask to push, publish, or create a PR, use this skill first for the commit, then continue with the publishing workflow after the commit exists.
+description: Commit staged and unstaged local changes with a clear title and a description that explains why they matter. Use when the user asks to commit, including the commit step of a push, pull request, publish, or yeet workflow. For those workflows, complete this skill before publishing.
 ---
 
 # Commit Changes
 
-Commit the current local work with an intentional message.
+Commit the current local changes with a clear message.
 
 ## Workflow
 
-1. Confirm the repository, branch, and working-tree state with `git status --short --untracked-files=all`.
+1. Confirm the repository, branch, and working tree with `git status --short --untracked-files=all`.
 2. Inspect staged changes with `git diff --cached --stat` and `git diff --cached`.
 3. Inspect unstaged changes with `git diff --stat` and `git diff`.
-4. Inspect relevant untracked files before staging them. Include untracked source or documentation files that belong to the local change. Do not add ignored files, secrets, credentials, build output, or unrelated artifacts.
-5. Use the current agent conversation and recent repository context to understand what the local change is doing and why. Inspect nearby code or recent commits when the diff alone is insufficient.
-6. If the working tree contains ambiguous or clearly unrelated changes that should not share a commit, ask the user before staging or committing.
+4. Inspect relevant untracked files before staging them. Include source and documentation files that belong to the change. Do not add ignored files, secrets, credentials, build output, or unrelated artifacts.
+5. Use the conversation and recent repository context to understand the change and its purpose. If the diff is not enough, inspect nearby code or recent commits.
+6. If changes are ambiguous or clearly unrelated, ask the user before staging or committing them.
 7. Stage the local changes that belong to the requested commit, including previously unstaged files.
-8. Review the staged diff and create the commit.
-9. Report the commit SHA, subject, and whether any local changes remain.
-10. If the user's request also includes pushing, publishing, or opening a pull request, stop this skill after the commit report and then continue with the appropriate publishing workflow.
+8. Review the staged diff. Create the commit.
+9. Report the commit SHA, subject, and any remaining local changes.
+10. If the user also requested a push, publication, or pull request, continue that workflow after the commit report.
 
 ## Commit Message
 
-Write a concise imperative title followed by a description paragraph or short bullet list.
+Write a short imperative title. Follow it with a description paragraph or short bullet list.
 
 The description must:
 
-- Explain why the change is important or helpful; prioritize the "why" over the "what".
-- Mention what changed only briefly, as context for understanding the reason.
-- Emphasize the problem solved, behavior enabled, risk reduced, or project/user benefit.
-- Wrap code references, file paths, command names, identifiers, and Gradle module or task paths such as `:abc:def` in backticks for Markdown rendering.
-- Do not insert line breaks to satisfy a maximum line length. Keep each prose paragraph or list item on one line, preserve intentional Markdown structure, and let the rendering tool wrap text to the available width.
+- Explain why the change matters. Focus on its purpose rather than its contents.
+- Briefly describe the change to give context.
+- Emphasize the problem solved, behavior enabled, risk reduced, or benefit to the project or user.
+- Wrap code references, file paths, commands, identifiers, and Gradle module or task paths such as `:abc:def` in backticks.
+- Keep each prose paragraph or list item on one line. Preserve intentional Markdown structure. Let the renderer wrap text; do not add line breaks to meet a line limit.
 - Omit verification details such as tests, lint, formatting, or build commands.
 
-Pass backtick-containing messages as single-quoted shell arguments or through a message file to prevent command substitution. Use a non-interactive commit command, for example:
+If a message contains backticks, use single-quoted shell arguments or a message file to prevent command substitution. Use a non-interactive commit command:
 
 ```bash
 git commit -m 'Concise imperative title' -m 'Explain why the change is important or helpful. Mention what changed only as needed for context, and wrap references like `FormatCommand` and `:abc:def` in backticks.'

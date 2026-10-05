@@ -1,19 +1,19 @@
 ---
 name: sync-custom-skills
-description: Sync custom Codex skills between a Git repository and Codex home, and generate personal AGENTS.md instructions from a tracked shared fragment plus a local private fragment. Use when the user asks to install, refresh, reconcile, or sync local custom skills or personal Codex instructions.
+description: Sync custom skills between a Git repository and Codex home. Generate personal AGENTS.md from shared and private instructions. Use when the user asks to install, refresh, reconcile, or sync local custom skills or personal Codex instructions.
 ---
 
 # Sync Custom Skills
 
 ## Overview
 
-Synchronize skill directories between a Git repository and the personal Codex skills directory. Generate the active personal `AGENTS.md` from the repository's shared `RALF_AGENTS.md` and the local-only `AGENTS.private.md`. Existing personal skills that do not have repository counterparts are intentionally ignored and must not be deleted.
+Sync skill directories between a Git repository and the personal Codex skills directory. Generate personal `AGENTS.md` from the repository's shared `RALF_AGENTS.md` and the local-only `AGENTS.private.md`. Keep personal skills that have no repository counterpart.
 
 ## Workflow
 
-1. Require the user to provide the Git repository path that hosts the custom skills, for example `~/dev/agent-skills`.
-2. Use `$CODEX_HOME/skills` as the personal skills directory when `CODEX_HOME` is set. Otherwise use `~/.codex/skills`. Resolve `AGENTS.md` and `AGENTS.private.md` as siblings of that directory.
-3. Run a preview first when the user asks to inspect changes:
+1. Require the user to provide the custom skills Git repository path, for example `~/dev/agent-skills`.
+2. If `CODEX_HOME` is set, use `$CODEX_HOME/skills` as the personal skills directory. Otherwise, use `~/.codex/skills`. Resolve `AGENTS.md` and `AGENTS.private.md` as siblings of that directory.
+3. If the user asks to inspect changes, run a preview first:
 
 ```bash
 python3 <skill-dir>/scripts/sync_custom_skills.py ~/dev/agent-skills --dry-run
@@ -25,34 +25,34 @@ python3 <skill-dir>/scripts/sync_custom_skills.py ~/dev/agent-skills --dry-run
 python3 <skill-dir>/scripts/sync_custom_skills.py ~/dev/agent-skills
 ```
 
-5. If the script copies a personal skill back into the repository, inspect `git status --short` and `git diff` afterward. Do not commit those repository changes unless the user asks.
+5. If the script copies a personal skill into the repository, inspect `git status --short` and `git diff` afterward. Commit those changes only if the user asks.
 
 ## Sync Rules
 
-- Discover repository skills by finding directories that contain `SKILL.md`.
-- Install each repository skill as a direct child of the personal skills directory, using the skill name from `SKILL.md` frontmatter when present.
-- If a personal skill does not exist, copy the repository skill into the personal skills directory.
-- If both skill directories have identical file contents, do nothing.
-- If contents differ, compare recency:
-  - Repository recency is the Unix timestamp of the most recent Git commit that updated that skill directory.
-  - Personal-skill recency is the newest file modification timestamp inside the personal skill directory.
+- Find repository skills in directories that contain `SKILL.md`.
+- Install each skill directly under the personal skills directory. If `SKILL.md` frontmatter has a name, use it.
+- If the personal skill does not exist, copy the repository skill to the personal skills directory.
+- If both directories have identical contents, leave them unchanged.
+- If contents differ, compare timestamps:
+  - For the repository skill, use the Unix timestamp of the most recent Git commit that updated its directory.
+  - For the personal skill, use the newest file modification timestamp in its directory.
   - If the personal skill is newer, copy it back into the repository.
   - Otherwise, copy the repository skill into the personal skills directory.
-- Ignore personal skills that are not present in the repository.
-- When the repository contains `RALF_AGENTS.md`, treat it as the shared instruction fragment and treat the sibling of the personal skills directory named `AGENTS.private.md` as the optional local-only fragment.
-- Generate the active personal `AGENTS.md` by joining the nonempty shared and private fragments with one blank line. Never copy the generated file back into the repository.
-- If an existing personal `AGENTS.md` contains content beyond the shared fragment and `AGENTS.private.md` is missing, skip generation so private content cannot be lost.
-- If `RALF_AGENTS.md` and `AGENTS.private.md` are identical, treat them as unsplit migration copies and leave the active `AGENTS.md` unchanged until the user splits them.
-- If `RALF_AGENTS.md` is absent from the repository, leave both personal instruction files untouched.
+- Ignore personal skills that have no repository counterpart.
+- If the repository contains `RALF_AGENTS.md`, use it as the shared instructions. Use the sibling `AGENTS.private.md` as the optional local-only instructions.
+- Join the nonempty shared and private instructions with one blank line to generate personal `AGENTS.md`. Never copy the generated file into the repository.
+- If personal `AGENTS.md` has content beyond the shared instructions and `AGENTS.private.md` is missing, skip generation to preserve private content.
+- If `RALF_AGENTS.md` and `AGENTS.private.md` are identical, leave personal `AGENTS.md` unchanged until the user splits these migration copies.
+- If the repository has no `RALF_AGENTS.md`, leave both personal instruction files unchanged.
 
-The script refuses to overwrite a repository skill from the personal directory when that repository path has uncommitted changes, unless `--allow-dirty-repo-overwrite` is passed.
+If a repository skill has uncommitted changes, the script refuses to overwrite it from the personal directory unless `--allow-dirty-repo-overwrite` is set.
 
 ## Script
 
-Use `scripts/sync_custom_skills.py` for the actual synchronization. It accepts:
+Use `scripts/sync_custom_skills.py` to sync. It accepts:
 
-- `repo`: required path to the Git repository containing custom skills.
-- `--home-skills-dir`: optional override for the personal skills directory. The personal `AGENTS.md` and `AGENTS.private.md` are resolved as siblings of this directory.
+- `repo`: required path to the custom skills repository.
+- `--home-skills-dir`: optional override for the personal skills directory. Resolve personal `AGENTS.md` and `AGENTS.private.md` as siblings of this directory.
 - `--dry-run`: report actions without changing files.
-- `--allow-dirty-repo-overwrite`: permit a home-to-repo skill copy even when the repository skill is dirty.
-- `--verbose`: print additional discovery and timestamp detail.
+- `--allow-dirty-repo-overwrite`: allow a personal skill to overwrite a repository skill that has uncommitted changes.
+- `--verbose`: print discovery and timestamp details.

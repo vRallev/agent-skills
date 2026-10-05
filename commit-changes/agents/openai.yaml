@@ -1,4 +1,4 @@
 interface:
   display_name: "Commit Changes"
-  short_description: "Understand local edits and commit them clearly"
-  default_prompt: "Use $commit-changes to inspect and commit my local staged and unstaged changes before any push or PR workflow."
+  short_description: "Review local changes and commit them clearly"
+  default_prompt: "Use $commit-changes to commit my staged and unstaged local changes before any push or PR."
