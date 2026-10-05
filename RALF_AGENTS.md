@@ -10,4 +10,4 @@ Whenever posting or editing a GitHub issue comment, pull-request comment, review
 
 # Documentation style
 
-For `.md` and other documentation changes, use the fewest words that still meet the request. Code snippets are exempt. Use simple English for prose and instructions.
+Use ASD-STE100 Simplified Technical English as a style guide. Use short sentences, active voice, and direct verbs. Give one action per instruction. Use consistent technical terms. State conditions before actions. Preserve details needed for correctness. Use the fewest words that still meet the request. Code snippets are exempt.
