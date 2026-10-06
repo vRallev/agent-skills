@@ -47,6 +47,44 @@ class Class1 {}
 class Class2 {}
 ```
 
+## Explicit Backing Fields
+
+If the project's Kotlin version supports explicit backing fields, use them when a property exposes a read-only type with a mutable implementation.
+
+For `MutableStateFlow`, expose a `StateFlow` property with `field = MutableStateFlow(...)`. Update the flow through the property inside the class. Avoid a separate mutable backing property and `asStateFlow()` for this pattern.
+
+Prefer:
+
+```kotlin
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
+
+class Counter {
+  val count: StateFlow<Int>
+    field = MutableStateFlow(0)
+
+  fun increment() {
+    count.update { it + 1 }
+  }
+}
+```
+
+Avoid:
+
+```kotlin
+class Counter {
+  private val mutableCount = MutableStateFlow(0)
+  val count: StateFlow<Int> = mutableCount.asStateFlow()
+
+  fun increment() {
+    mutableCount.update { it + 1 }
+  }
+}
+```
+
+See [Kotlin explicit backing fields](https://kotlinlang.org/docs/properties.html#explicit-backing-fields) and the [Storymile review comment](https://github.com/vRallev/storymile/pull/28/changes#r4192194958).
+
 ## KDoc
 
 Use KDoc only for caller information beyond the declaration and its types. Explain the API's intent, use, observable behavior, and non-obvious edge cases.
