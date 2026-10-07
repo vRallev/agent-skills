@@ -112,6 +112,7 @@ Invoke `$commit-changes`. Follow its instructions. Before committing, review sta
 Identify the dependency or related dependency group and target version in the commit title. In the commit body, explain:
 
 - why the upgrade is useful;
+- the expected invariants, including repository behavior and compatibility guarantees that must hold after the upgrade;
 - every old-to-new version;
 - the official release date of each target version in `YYYY-MM-DD` format;
 - the important changelog behavior, fixes, or breaking changes;
@@ -133,7 +134,7 @@ Invoke `$create-or-update-pr`. Follow its instructions.
 1. Push without force-pushing or rewriting remote history.
 2. Create new PRs as drafts. Preserve the review state of existing PRs.
 3. Verify the resulting title, body, base, head, draft state, and URL.
-4. Confirm that the PR body retains the commit's release dates, changelog, repository impact, known issues and issue-search limitations, and source links. Keep backticks around code references and Gradle module paths.
+4. Confirm that the PR body retains the upgrade intent, expected invariants, release dates, changelog, repository impact, known issues and issue-search limitations, and source links. Keep backticks around code references and Gradle module paths.
 5. Unless the user explicitly authorizes closing or replacing it, leave any pre-existing automated PR untouched.
 
 ### 8. Watch the PR

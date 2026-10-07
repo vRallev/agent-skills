@@ -22,13 +22,15 @@ Commit the current local changes with a clear message.
 
 ## Commit Message
 
-Write a short imperative title. Follow it with a description paragraph or short bullet list.
+Write a short imperative title that names the intended outcome. Follow it with a description paragraph or short bullet list.
+
+Preserve applicable author-provided intent and invariants. Treat model-generated text as a draft for the author's review. Do not claim human authorship or review without evidence.
 
 The description must:
 
-- Explain why the change matters. Focus on its purpose rather than its contents.
-- Briefly describe the change to give context.
-- Emphasize the problem solved, behavior enabled, risk reduced, or benefit to the project or user.
+- Explain the author's intent: the problem or purpose and the intended outcome.
+- State relevant expected invariants: behavior, guarantees, or constraints that must hold after the change.
+- Explain the implementation mechanism only when needed to understand the intent or invariants. Do not paraphrase the diff or invent intent or guarantees.
 - Wrap code references, file paths, commands, identifiers, and Gradle module or task paths such as `:abc:def` in backticks.
 - Keep each prose paragraph or list item on one line. Preserve intentional Markdown structure. Let the renderer wrap text; do not add line breaks to meet a line limit.
 - Omit verification details such as tests, lint, formatting, or build commands.

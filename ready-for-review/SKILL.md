@@ -10,7 +10,7 @@ Prepare the current feature branch and its PR for review. Invoking this skill ex
 ## Workflow
 
 1. Confirm the current repository, branch, upstream, and working-tree state. Before rewriting history, require a clean working tree. Do not run this workflow on `main`, `master`, or a detached `HEAD`.
-2. Find the open PR for the current local branch. Record whether it is a draft. Prefer GitHub connector tools. If connector coverage is insufficient, use `gh`.
+2. Find the open PR for the current local branch. Record whether it is a draft. Read its title and body to retain applicable author-provided intent and invariants for the commit rewrite. Prefer GitHub connector tools. If connector coverage is insufficient, use `gh`.
 3. Run `git fetch origin`.
 4. Choose the rebase target:
    - If `refs/remotes/origin/main` exists, use `origin/main`.
@@ -24,7 +24,7 @@ Prepare the current feature branch and its PR for review. Invoking this skill ex
    - Run `git reset --soft <base>`.
    - Create one commit from the staged combined patch. Use the saved oldest commit message as a starting point. For `A -> B -> C (HEAD)`, start with the message from `A`. Update it in the next step.
    - Do not use `git reset --hard`.
-8. Use `$update-commit-message` to update the single commit's title and description for the final combined diff. Explain why the change helps. Apply this step even if the branch already had only one commit. This invocation explicitly approves amending the current PR branch's commit message. Keep the committed contents unchanged.
+8. Use `$update-commit-message` to update the single commit's title and description for the final combined diff. Explain the author's intent and expected invariants. Preserve applicable author-provided intent and invariants from the existing PR and conversation. Apply this step even if the branch already had only one commit. This invocation explicitly approves amending the current PR branch's commit message. Keep the committed contents unchanged.
    - Follow the skill's Markdown rules. Put backticks around code references, file paths, and Gradle module or task paths such as `:abc:def`.
    - Keep each prose paragraph or list item on one line. Preserve intentional Markdown structure. Let the renderer wrap text; do not add line breaks to limit line length.
 9. Before pushing, confirm both conditions:
@@ -48,7 +48,7 @@ git push --force-with-lease origin HEAD:<current-branch>
    - The PR title matches the commit subject.
    - The PR description matches the commit body, ignoring only trailing newlines.
    - The PR's draft status is unchanged.
-14. Report the final commit SHA, push status, verified match between PR text and commit text, number of resolved conversations, and unchanged draft status.
+14. Report the final commit SHA, push status, verified match between PR text and commit text, number of resolved conversations, and unchanged draft status. If you drafted text without confirmed author review, identify that review as remaining work.
 
 ## Safety
 
