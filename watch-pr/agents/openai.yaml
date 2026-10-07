@@ -1,4 +1,4 @@
 interface:
   display_name: "Watch PR"
   short_description: "Monitor PR checks, CI failures, and feedback"
-  default_prompt: "Use $watch-pr to monitor this pull request every 20 seconds until CI is green, CI failures are fixed, and reviewer feedback is handled."
+  default_prompt: "Use $watch-pr to monitor this pull request every 20 seconds until all non-skipped CI checks succeed, CI failures are fixed, and reviewer feedback is handled. Ignore skipped CI checks and jobs."

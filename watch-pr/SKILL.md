@@ -1,6 +1,6 @@
 ---
 name: watch-pr
-description: "Monitor a GitHub PR until every current-head CI check succeeds and reviewer feedback stops arriving. Use when asked to watch, monitor, babysit, or wait on a PR. Poll every 20 seconds in the current task. Address CI failures as they occur. Use $address-pr-comments for feedback and $commit-changes for each CI fix or accepted reviewer request. Push commits. Continue until CI stays green and feedback stays quiet."
+description: "Monitor a GitHub PR until every non-skipped current-head CI check succeeds and reviewer feedback stops arriving. Use when asked to watch, monitor, babysit, or wait on a PR. Ignore skipped CI checks and jobs. Poll every 20 seconds in the current task. Address CI failures as they occur. Use $address-pr-comments for feedback and $commit-changes for each CI fix or accepted reviewer request. Push commits. Continue until CI stays green and feedback stays quiet."
 ---
 
 # Watch PR
@@ -32,7 +32,7 @@ On every poll:
 2. Compare all review and PR-comment streams with the previous snapshot.
 3. If new human feedback has no existing `**Ralf-AI:**` response as its latest reply, run `$address-pr-comments` for the PR. Follow all its safety, commit, validation, push, and unresolved-thread rules. Apply the classification rules below.
 4. After `$address-pr-comments` finishes, immediately refresh the head SHA, CI, and comments. Any pushed commit or new comment resets green/quiet confirmation.
-5. While a current-head CI job is missing, queued, pending, running, stale, or has a conclusion other than `success`, continue waiting. Do not count skipped, neutral, cancelled, timed-out, or action-required jobs as successful.
+5. Ignore current-head CI checks and jobs with conclusion `skipped`. They do not block completion. For every other check or job, continue waiting while it is missing, queued, pending, running, stale, or has a conclusion other than `success`. Do not count neutral, cancelled, timed-out, or action-required jobs as successful.
 6. Address each CI failure as it occurs:
    - Inspect the failing check or job to identify the concrete failure.
    - Implement the smallest appropriate fix for that failure.
@@ -62,9 +62,9 @@ Never amend or force-push. Keep one commit per accepted reviewer request. Unless
 
 Finish only when all of these are true for the same current head SHA:
 
-- At least one CI check has been discovered. Every discovered check and job has completed with conclusion `success`. No expected or required check is missing.
+- At least one CI check has been discovered. Ignore checks and jobs with conclusion `skipped`. Every other discovered check and job has completed with conclusion `success`. No expected or required check is missing.
 - `$address-pr-comments` has considered every observed human review or PR-level comment. Each handled conversation's latest reply starts with `**Ralf-AI:**`, or no reply was needed.
-- Two consecutive full snapshots, at least 20 seconds apart, have the same head SHA and no new human comments, while CI remains fully successful.
+- Two consecutive full snapshots, at least 20 seconds apart, have the same head SHA and no new human comments, while every CI check and job remains successful or skipped.
 
 If the PR is merged or closed, stop. Report that terminal state. If authentication, branch permissions, an ambiguous or risky request, or a permanently failed external check requires owner action, report the exact blocker and required action. Do not falsely declare the PR green.
 
