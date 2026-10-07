@@ -85,9 +85,33 @@ class Counter {
 
 See [Kotlin explicit backing fields](https://kotlinlang.org/docs/properties.html#explicit-backing-fields) and the [Storymile review comment](https://github.com/vRallev/storymile/pull/28/changes#r4192194958).
 
-## Braces for Multiline If/Else
+## Braces for If Statements and Expressions
 
-If an `if`/`else` statement or expression does not fit on one line, always use braces for both branches.
+When an `if` or `if`/`else` is used as a statement, always use braces for each branch, even if it fits on one line.
+
+Use:
+
+```kotlin
+if (!modeSelectedInMemory) {
+  mode.value = savedMode
+}
+```
+
+Do not use:
+
+```kotlin
+if (!modeSelectedInMemory) mode.value = savedMode
+```
+
+Omit braces only when an `if`/`else` expression produces a value used by the surrounding code and fits entirely on one line.
+
+Allowed:
+
+```kotlin
+val logo = if (isDark) Res.drawable.storymile_logo_dark else Res.drawable.storymile_logo_light
+```
+
+If the expression spans multiple lines, always use braces for both branches.
 
 Prefer:
 
