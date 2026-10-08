@@ -10,4 +10,6 @@ Whenever posting or editing a GitHub issue comment, pull-request comment, review
 
 # Documentation style
 
-Use ASD-STE100 Simplified Technical English as a style guide. Use short sentences, active voice, and direct verbs. Give one action per instruction. Use consistent technical terms. State conditions before actions. Preserve details needed for correctness. Use the fewest words that still meet the request. Code snippets are exempt.
+For documentation changes, minimize added and changed words while still achieving the goal. Before finishing, review the diff and remove unnecessary words and repetition. Code snippets are exempt.
+
+Use ASD-STE100 Simplified Technical English as a style guide. Use short sentences, active voice, and direct verbs. Give one action per instruction. Use consistent technical terms. State conditions before actions. Preserve details needed for correctness.
