@@ -134,6 +134,30 @@ val logo =
 
 See the [Storymile pull request](https://github.com/vRallev/storymile/pull/29/changes#diff-987f4b68673f68a90db1f987b17a3ad09a91e185d7a9693750aa09e518dacf7c).
 
+## Exception Handling
+
+Use `try`/`catch` blocks instead of `runCatching { ... }.onFailure { ... }`.
+
+Use:
+
+```kotlin
+try {
+  saveSettings()
+} catch (exception: IOException) {
+  reportError(exception)
+}
+```
+
+Do not use:
+
+```kotlin
+runCatching {
+  saveSettings()
+}.onFailure { exception ->
+  reportError(exception)
+}
+```
+
 ## KDoc
 
 Use KDoc only for caller information beyond the declaration and its types. Explain the API's intent, use, observable behavior, and non-obvious edge cases.
