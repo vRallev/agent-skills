@@ -42,16 +42,16 @@ After the OS-level one-time wake-up is scheduled successfully, archive the curre
    - Do not use a Codex heartbeat or cron automation. Heartbeats attach to the target thread. Codex cron accepts only limited repeating schedules. Neither reliably wakes an archived thread at an arbitrary exact time.
    - Run `scripts/schedule_snooze.py schedule --thread-id <current thread ID> --wake-at <resolved ISO-8601 instant with offset> --timezone <IANA timezone>`. If the user supplied a follow-up, append `--follow-up-prompt <verbatim follow-up prompt>`.
    - Request escalation for this command. It writes a per-user LaunchAgent and registers it with `launchctl`.
-   - The helper schedules one native macOS calendar trigger. The trigger starts a short-lived `codex app-server --stdio` client with `multi_agent`, `multi_agent_mode`, and `collaboration_modes` disabled. Through App Server JSON-RPC, the helper unarchives the thread. It reads the current title and removes one leading `⏰ ` with `thread/name/set`. It starts any optional follow-up as a new turn. It then removes its own LaunchAgent.
-   - Do not ask a resumed model turn to remove the title prefix. Dynamic Codex app tools are unavailable in `codex exec` mode. Use App Server `thread/read` and `thread/name/set` directly for title cleanup.
+   - The helper schedules one native macOS calendar trigger. The trigger starts a short-lived `codex app-server --stdio` client with `multi_agent`, `multi_agent_mode`, and `collaboration_modes` disabled. Through App Server JSON-RPC, the helper unarchives the thread. It reads the current title, removes one leading `⏰ `, and adds `❗ ` unless already present. It writes the title with `thread/name/set`. It starts any optional follow-up as a new turn. It then removes its own LaunchAgent.
+   - Do not ask a resumed model turn to update the title prefix. Dynamic Codex app tools are unavailable in `codex exec` mode. Use App Server `thread/read` and `thread/name/set` directly for title updates.
    - The helper also enables `RunAtLoad`. Its absolute-time guard exits harmlessly before the target time. If a reboot or login occurs after the target time, the helper catches up immediately.
    - Pass a wake instant no more than 366 days in the future. If the user asks for a farther target, explain that the native one-shot scheduler cannot safely encode the year. Ask for a nearer time. Do not approximate.
    - Before continuing, verify the helper's success output and resolved local wake time. If scheduling fails, report the error. Leave the thread unarchived.
 
 6. Prefix the title and archive the same thread.
    - Read the current title for `<current thread ID>`.
-   - If it does not already start with `⏰ `, call `set_thread_title` with `threadId=<current thread ID>` and title `⏰ <existing title>`.
-   - Do not add a second clock prefix when the thread is snoozed again.
+   - Remove every `❗` emoji and its following space, if present. If the result does not start with `⏰ `, add that prefix.
+   - If the title changed, call `set_thread_title` with `threadId=<current thread ID>` and the new title. Keep only one clock prefix when snoozing again.
    - If renaming fails after the wake-up was created, run `scripts/schedule_snooze.py cancel --thread-id <current thread ID>` with escalation. Report the failure. Leave the thread unarchived.
    - Call `set_thread_archived` with `threadId=<current thread ID>` and `archived=true`.
    - If archiving fails after the wake-up was created, run `scripts/schedule_snooze.py cancel --thread-id <current thread ID>` with escalation. This prevents an unexpected wake-up. Report the failure.

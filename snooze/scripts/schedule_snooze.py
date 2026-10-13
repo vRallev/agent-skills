@@ -26,6 +26,7 @@ UUID_RE = re.compile(
 LABEL_PREFIX = "com.openai.codex.snooze"
 MAX_AHEAD = dt.timedelta(days=366)
 CLOCK_PREFIX = "⏰ "
+RESTORED_PREFIX = "❗ "
 APP_SERVER_REQUEST_TIMEOUT_SECONDS = 30.0
 FOLLOW_UP_TIMEOUT_SECONDS = 60.0 * 60.0
 DISABLED_APP_SERVER_FEATURES = (
@@ -269,7 +270,7 @@ class AppServerClient:
         return prefix + detail
 
 
-def remove_clock_prefix(client: AppServerClient, thread_id: str) -> bool:
+def mark_restored_title(client: AppServerClient, thread_id: str) -> bool:
     result = client.request(
         "thread/read",
         {"threadId": thread_id, "includeTurns": False},
@@ -278,11 +279,16 @@ def remove_clock_prefix(client: AppServerClient, thread_id: str) -> bool:
     if not isinstance(thread, dict):
         raise AppServerError("thread/read did not return thread metadata")
     title = thread.get("name")
-    if not isinstance(title, str) or not title.startswith(CLOCK_PREFIX):
+    if not isinstance(title, str):
+        return False
+    restored_title = title.removeprefix(CLOCK_PREFIX)
+    if not restored_title.startswith(RESTORED_PREFIX):
+        restored_title = RESTORED_PREFIX + restored_title
+    if restored_title == title:
         return False
     client.request(
         "thread/name/set",
-        {"threadId": thread_id, "name": title[len(CLOCK_PREFIX) :]},
+        {"threadId": thread_id, "name": restored_title},
     )
     return True
 
@@ -478,10 +484,10 @@ def run(args: argparse.Namespace) -> None:
         print(json.dumps({"threadId": thread_id, "unarchived": True}))
 
         try:
-            title_updated = remove_clock_prefix(client, thread_id)
+            title_updated = mark_restored_title(client, thread_id)
             print(json.dumps({"threadId": thread_id, "titleUpdated": title_updated}))
         except (AppServerError, TimeoutError) as exc:
-            message = f"title cleanup failed: {exc}"
+            message = f"title update failed: {exc}"
             print(message, file=sys.stderr)
             errors.append(message)
 
