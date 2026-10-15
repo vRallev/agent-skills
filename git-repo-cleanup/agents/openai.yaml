@@ -1,0 +1,4 @@
+interface:
+  display_name: "Git repo cleanup"
+  short_description: "Remove merged worktrees and unused local branches"
+  default_prompt: "Use $git-repo-cleanup to delete merged PR worktrees with no unarchived Codex thread and local branches already integrated into origin/main."
