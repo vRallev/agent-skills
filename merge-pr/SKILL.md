@@ -52,13 +52,16 @@ On every loop and immediately before merging, refresh the live PR and base-branc
    ```
 
    Require each applicable check to pass. For a required check, treat `pending`, `fail`, and `cancel` as not ready. For a skipped check, verify that it satisfies the live protection rule. Ignore failing, cancelled, or pending **non-required** checks. Do not use unfiltered `gh pr checks`, `statusCheckRollup`, or an overall check summary as the merge gate.
-4. Wait for pending required checks with the scoped watcher:
+4. While required checks are pending, poll every 30 seconds. Refresh every PR in the merge set before repeating the required-check query above:
 
    ```bash
-   gh pr checks "$PR_NUMBER" --repo "$REPO" --required --watch --interval 30
+   gh pr view "$PR_NUMBER" --repo "$REPO" \
+     --json state,baseRefName,baseRefOid,headRefOid,mergeable,mergeStateStatus
    ```
 
-   Monitor the running command. Keep the user informed. If a required check fails, inspect its linked GitHub Actions or Buildkite evidence on the exact head. If supported, safely rerun a verified transient or infrastructure failure. Make a focused fix only when the failure, necessary change, and authorization are clear. Otherwise, report the concrete external or human blocker. Whenever the head changes, recheck approvals and restart check monitoring.
+   If any PR has a verified conflict, follow **Resolve an actual merge conflict** immediately. Do not wait for running checks to finish or diagnose failed checks on the old head first. Do not use a blocking `gh pr checks --watch` command. Whenever the head changes, discard previous check results. Recheck approvals and restart this polling loop for the new head.
+
+   Keep the user informed. If a required check fails without a verified conflict, inspect its linked GitHub Actions or Buildkite evidence on the exact head. If supported, safely rerun a verified transient or infrastructure failure. Make a focused fix only when the failure, necessary change, and authorization are clear. Otherwise, report the concrete external or human blocker.
 
 ## Resolve required review conversations
 
@@ -96,7 +99,7 @@ When a real conflict exists:
    ```
 
    Resolve `$HEAD_REMOTE` from the verified head repository. Use a matching configured remote or that repository's verified authenticated SSH URL. Never use bare `--force`, push to the base branch, assume a fork is pushable, or overwrite a changed remote head. If the lease is rejected, refresh state. Restart with the same protection.
-6. Read the PR back. Verify the exact newly pushed head SHA. Recheck effective approvals and rules. Wait for **new-head required CI**. After the rebase and push finish, remove only the agent-owned temporary worktree, if safe. If work is interrupted or unresolved, preserve the worktree. Report its path.
+6. Read the PR back. Verify the exact newly pushed head SHA. Recheck effective approvals and rules. Resume the polling loop for **new-head required CI and mergeability**. After the rebase and push finish, remove only the agent-owned temporary worktree, if safe. If work is interrupted or unresolved, preserve the worktree. Report its path.
 
 ## Submit and monitor until merged
 
@@ -117,7 +120,7 @@ When a real conflict exists:
    ```
 
    Substitute `--rebase` or `--merge` only for a verified allowed or requested method. Do not claim success from the command exit code.
-4. Poll the same canonical PR, exact head, required checks, auto-merge state, and queue entry. Continue until `gh pr view` verifies `state: MERGED` and a non-null `mergedAt`. Use a persistent command session or available task-wait mechanism. Use a measured polling interval. Give regular, concise progress updates. Do not abandon the loop because checks are pending or the PR is queued.
+4. Poll the same canonical PR, exact head, required checks, mergeability, merge state, auto-merge state, and queue entry. Use the same polling and conflict-repair loop while queued. Continue until `gh pr view` verifies `state: MERGED` and a non-null `mergedAt`. Use a persistent command session or available task-wait mechanism. Use a measured polling interval. Give regular, concise progress updates. Do not abandon the loop because checks are pending or the PR is queued.
 5. If the queue rejects or removes an open, unmerged PR, return to the start of the loop. Refresh base movement, head SHA, rules, approvals, required checks, review conversations, and mergeability. If required, resolve new unresolved conversations. Resolve any new verified conflict. Wait for new required CI. Submit again. Never blindly resubmit a PR already in the queue.
 6. Stop only after GitHub verifies `MERGED`, the user cancels, or progress requires an action you cannot take. Such blockers include missing human approval, unavailable permission to act or resolve required conversations, an unpushable fork, or action outside the user's authorization. Report the precise blocker. Do not present queued, pending, auto-merge-enabled, or rejected state as success.
 
