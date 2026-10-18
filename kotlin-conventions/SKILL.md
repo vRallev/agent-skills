@@ -47,6 +47,26 @@ class Class1 {}
 class Class2 {}
 ```
 
+## Named Arguments
+
+For function and constructor calls, always name every argument when either condition applies:
+
+- Two or more arguments have the same type.
+- The argument list requires multiple lines.
+
+Use:
+
+```kotlin
+createUser(firstName = "Ada", lastName = "Lovelace")
+
+PlayerConfiguration(
+  audioEngine = audioEngine,
+  coroutineScope = applicationScope,
+  retryDelay = 5.seconds,
+  startAutomatically = true,
+)
+```
+
 ## Explicit Backing Fields
 
 If the project's Kotlin version supports explicit backing fields, use them when a property exposes a read-only type with a mutable implementation.
