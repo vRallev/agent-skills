@@ -103,7 +103,7 @@ class Counter {
 }
 ```
 
-See [Kotlin explicit backing fields](https://kotlinlang.org/docs/properties.html#explicit-backing-fields) and the [Storymile review comment](https://github.com/vRallev/storymile/pull/28/changes#r4192194958).
+See [Kotlin explicit backing fields](https://kotlinlang.org/docs/properties.html#explicit-backing-fields).
 
 ## Braces for If Statements and Expressions
 
@@ -128,7 +128,7 @@ Omit braces only when an `if`/`else` expression produces a value used by the sur
 Allowed:
 
 ```kotlin
-val logo = if (isDark) Res.drawable.storymile_logo_dark else Res.drawable.storymile_logo_light
+val logo = if (isDark) Res.drawable.logo_dark else Res.drawable.logo_light
 ```
 
 If the expression spans multiple lines, always use braces for both branches.
@@ -138,9 +138,9 @@ Prefer:
 ```kotlin
 val logo =
   if (AppTheme.colorScheme.surfaceContainer.luminance() < 0.5f) {
-    Res.drawable.storymile_logo_dark
+    Res.drawable.logo_dark
   } else {
-    Res.drawable.storymile_logo_light
+    Res.drawable.logo_light
   }
 ```
 
@@ -148,11 +148,9 @@ Avoid:
 
 ```kotlin
 val logo =
-  if (AppTheme.colorScheme.surfaceContainer.luminance() < 0.5f) Res.drawable.storymile_logo_dark
-  else Res.drawable.storymile_logo_light
+  if (AppTheme.colorScheme.surfaceContainer.luminance() < 0.5f) Res.drawable.logo_dark
+  else Res.drawable.logo_light
 ```
-
-See the [Storymile pull request](https://github.com/vRallev/storymile/pull/29/changes#diff-987f4b68673f68a90db1f987b17a3ad09a91e185d7a9693750aa09e518dacf7c).
 
 ## Exception Handling
 
