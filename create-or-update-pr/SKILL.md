@@ -19,18 +19,8 @@ IMPORTANT: Push and open PRs or deltas as fast as possible. Defer local checks a
 6. Build the PR title and body from the commits and author context using the rules below.
 7. If an open PR exists, update its title and body. Preserve its draft or ready-for-review state. Do not convert a ready PR to draft. Do not mark a draft PR ready for review.
 8. If no open PR exists, create a new PR as a draft. Never create a ready-for-review PR.
-9. Set up the CI heartbeat below.
-10. After opening the PR, run local checks, including checks normally run by pre-commit hooks, while CI builds. Fix related failures and push fixes.
-11. Report the PR URL, whether you created or updated it, and the base and head branches. For a new PR, state that you created it as a draft. If you drafted text without confirmed author review, identify that review as remaining work.
-
-## CI Heartbeat
-
-IMPORTANT: Whenever you open a PR or delta, use `automation_update` to create a heartbeat in the current chat that runs every 2 minutes. Reuse a matching heartbeat when one exists. Include the PR or delta URL and these instructions:
-
-- Check blocking CI and merge conflicts for the current head. Fix related failures and merge conflicts. Commit and push fixes, then check the new head.
-- Ignore non-blocking CI checks and test failures confirmed to be unrelated to the change.
-- Stay quiet unless there is a meaningful change, completion, or a blocker that needs the user.
-- Stop when all non-ignored blocking CI checks have passed and no merge conflicts remain, or when the PR or delta is merged or closed.
+9. After opening the PR, run local checks, including checks normally run by pre-commit hooks, while CI builds. Fix related failures and push fixes.
+10. Report the PR URL, whether you created or updated it, and the base and head branches. For a new PR, state that you created it as a draft. If you drafted text without confirmed author review, identify that review as remaining work.
 
 ## PR Text Rules
 
