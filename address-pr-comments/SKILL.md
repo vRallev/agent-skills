@@ -1,18 +1,18 @@
 ---
 name: address-pr-comments
-description: "Address review conversations on the current GitHub pull request. Use when the user asks to address PR comments, review feedback, unresolved conversations, or requested changes. Fetch threads and skip those already answered by Ralf-AI. Evaluate each request. Make one new commit per accepted request, push commits, and reply without resolving threads."
+description: "Address review conversations on a GitHub pull request or stack. Use when the user asks to address PR comments, review feedback, unresolved conversations, or requested changes. Fetch threads and skip those already answered by Ralf-AI. Make one new commit per accepted request, restack affected descendants, and reply without resolving threads."
 ---
 
 # Address PR Comments
 
-Process review conversations on the current PR autonomously. Link each local fix and GitHub reply to one reviewer request. Evaluate reviewer comments before acting on them.
+Process review conversations autonomously. Link each local fix and GitHub reply to one reviewer request. Evaluate reviewer comments before acting on them.
 
 Use `$github-comments` for every GitHub comment or review write.
 
 ## Workflow
 
-1. Confirm the working tree state. Preserve unrelated local changes. Never rewrite published history.
-2. Find the open PR for the current branch. Prefer GitHub connector tools. Use `gh` only if connector coverage is insufficient and authentication permits it.
+1. Confirm the working tree state. Preserve unrelated local changes.
+2. Find the requested open PRs or the open PR for the current branch. Prefer GitHub connector tools. Use `gh` only if connector coverage is insufficient and authentication permits it. For stacked PRs, follow [PR stacks](#pr-stacks) from discovery through publication.
 3. Fetch all inline review conversations, including each thread's resolved state and all comments. If available, fetch PR-level comments too.
 4. Consider only conversations whose last comment is not a previous agent response beginning with `**Ralf-AI:**`.
 5. Classify each considered conversation:
@@ -21,10 +21,10 @@ Use `$github-comments` for every GitHub comment or review write.
    - **Question:** Reply on GitHub. Edit code only if it is a leading question and implies a clear, sensible change.
    - **Inapplicable or misaligned request:** If the request rests on an incorrect assumption, does not apply, exceeds the PR's scope, or conflicts with its intent, reject it without changing code. Reply politely with the concrete reason.
    - **Ambiguous, conflicting, or risky request:** Ask the user only if you cannot confidently accept or reject the request, or if either choice would materially change the PR's intent.
-6. For each accepted request, validate the focused scope. Then use `$commit-changes` to create one new commit dedicated to that request. Do not combine separate requests into one commit. Keep earlier commits intact.
+6. For each accepted request, validate the focused scope. Then use `$commit-changes` to append one new commit dedicated to that request.
    - Follow the skill's Markdown rules. Put backticks around code references, file paths, and Gradle module or task paths such as `:abc:def`.
    - Do not insert line breaks to limit line length. Keep each prose paragraph or list item on one line. Preserve intentional Markdown structure. Let the rendering tool wrap text.
-7. Push all new commits to the current PR branch.
+7. Push the new commits. For a standalone PR, use a fast-forward push.
 8. After pushing, reply to each considered conversation:
    - For a fix, state what changed and include the commit SHA.
    - For a question, answer directly.
@@ -32,6 +32,15 @@ Use `$github-comments` for every GitHub comment or review write.
    - Use `$github-comments` for each reply.
 9. Unless the user explicitly asks to resolve them, leave conversations unresolved.
 10. Summarize considered conversations, accepted and rejected requests, commits, push status, validation, replies, and intentionally deferred items.
+
+## PR stacks
+
+1. Verify the stack order from live PR base and head refs. Use PR descriptions as discovery hints. Before editing, fetch and record the original remote heads. Verify each descendant's original parent boundary.
+2. Review feedback only on the requested PRs. The request also authorizes rebasing affected descendants within the user's branch limits. If those limits cut off the restack, report which descendants still need a rebase.
+3. Work from base to tip. When a parent head changes, use `git rebase --onto <new-parent> <old-parent>` to replay only the descendant's own commits. Append that PR's review fixes after its rebase.
+4. Before pushing, verify that each new parent head is an ancestor of its child. Check each PR's commit range with `git range-diff` to confirm it preserves the original changes and includes the intended fixes.
+5. Push atomically when supported. Otherwise, push from base to tip and stop on the first failure. Keep each update a fast-forward except for descendants that needed rebasing. Use `--force-with-lease=<ref>:<old-sha>` with the recorded remote SHA for each updated ref. If a lease fails, refresh the stack and preserve the new remote work before retrying.
+6. Read back the published heads and base refs before replying. Cite the published fix SHAs.
 
 ## Review Rules
 
