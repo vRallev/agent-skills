@@ -1,6 +1,6 @@
 ---
 name: watch-pr
-description: "Monitor a GitHub PR until every non-ignored current-head CI check succeeds and reviewer feedback stops arriving. Use when asked to watch, monitor, babysit, or wait on a PR. Ignore skipped and neutral CI checks and jobs. Poll every 20 seconds in the current task. Address CI failures as they occur. Use $address-pr-comments for feedback and $commit-changes for each CI fix or accepted reviewer request. Push commits. Continue until CI stays green and feedback stays quiet."
+description: "Monitor a GitHub PR until every non-ignored current-head CI check succeeds and reviewer feedback stops arriving. Use when asked to watch, monitor, babysit, or wait on a PR. Ignore skipped and neutral CI checks and jobs. Poll every 20 seconds in the current task. Address CI failures as they occur. Use $address-pr-comments for feedback and $commit-changes for each CI fix or accepted reviewer request. Publish fixes and restack affected descendants. Continue until CI stays green and feedback stays quiet."
 ---
 
 # Watch PR
@@ -35,13 +35,17 @@ On every poll:
 5. Ignore current-head CI checks and jobs with conclusion `skipped` or `neutral`. They do not block completion. Apply these exclusions without asking for confirmation. For every other check or job, continue waiting while it is missing, queued, pending, running, stale, or has a conclusion other than `success`. Do not count cancelled, timed-out, or action-required jobs as successful.
 6. Address each CI failure as it occurs:
    - Inspect the failing check or job to identify the concrete failure.
+   - Before editing, check for a stack and follow [Publishing fixes](#publishing-fixes).
    - Implement the smallest appropriate fix for that failure.
    - Run focused validation.
-   - Use `$commit-changes` to create one commit for that failure.
-   - Push the commit.
+   - Use `$commit-changes` to append one commit for that failure.
+   - Publish the fix. Refresh the watched PR's head and CI before acting on another failure.
 
-   Keep each CI failure fix in its own commit.
 7. If a failure is transient, caused by infrastructure, externally blocked, unrelated to the PR, or unsafe to fix without more context, report the blocker. Continue monitoring. Do not make a speculative change.
+
+## Publishing fixes
+
+Fast-forward the watched branch when publishing a CI or review fix. For a stacked PR, follow the `PR stacks` section of `$address-pr-comments` from discovery through publication. Rebase affected descendants within the user's branch limits and publish their rewritten heads with `--force-with-lease=<ref>:<old-sha>`. Continue monitoring the watched PR.
 
 ## Feedback classification
 
@@ -49,19 +53,20 @@ Apply these additions while using `$address-pr-comments`:
 
 Use `$github-comments` for every GitHub comment or review write.
 
-- **Reasonable suggestion:** Accept a clear, safe request that improves correctness, reliability, tests, readability, or maintainability without materially expanding the PR. Use `$commit-changes` to make one new commit for that request. Run focused validation. Push it. Reply with the commit SHA.
+- **Reasonable suggestion:** Accept a clear, safe request that improves correctness, reliability, tests, readability, or maintainability without materially expanding the PR. Use the fix and reply workflow in `$address-pr-comments`.
 - **Unreasonable suggestion:** Reject only when the request is clearly incorrect, irrelevant, duplicative, contrary to verified project constraints, or a disproportionate scope expansion. Make no code change. Post a concise, respectful GitHub reply with the concrete reason.
 - **Ambiguous, conflicting, or risky suggestion:** Do not label uncertainty as unreasonable. Before editing or posting a speculative answer, ask the user as required by `$address-pr-comments`.
 - **Question:** Answer directly on GitHub when the answer is verified. Do not create a commit for a question-only response.
 
 For every commit description, do not add line breaks to meet a maximum line length. Keep each prose paragraph or list item on one line. Preserve intentional Markdown structure. Let the rendering tool wrap the text.
 
-Never amend or force-push. Keep one commit per accepted reviewer request. Unless the user explicitly asks, never resolve a review conversation.
+Keep one commit per accepted reviewer request. Unless the user explicitly asks, never resolve a review conversation.
 
 ## Completion
 
 Finish only when all of these are true for the same current head SHA:
 
+- Any required restack within the user's branch limits is published and verified.
 - At least one CI check has been discovered. Ignore checks and jobs with conclusion `skipped` or `neutral`. Every other discovered check and job has completed with conclusion `success`. No expected or required check is missing.
 - `$address-pr-comments` has considered every observed human review or PR-level comment. Each handled conversation's latest reply starts with `**Ralf-AI:**`, or no reply was needed.
 - Two consecutive full snapshots, at least 20 seconds apart, have the same head SHA and no new human comments, while every CI check and job remains successful, skipped, or neutral.
