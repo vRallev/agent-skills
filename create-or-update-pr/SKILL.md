@@ -1,6 +1,6 @@
 ---
 name: create-or-update-pr
-description: Create a draft pull request or update the open pull request for the current branch. Use when the user asks to create, open, update, refresh, or sync a PR for local branch work. Preserve the review state of existing PRs. Never mark a draft PR ready for review. Use commits and author context to explain intent and expected invariants.
+description: Create a draft pull request, update an open pull request, or create a PR stack. Use when the user asks to create, open, update, refresh, or sync a PR for local branch work. Preserve the review state of existing PRs. Never mark a draft PR ready for review. Use commits and author context to explain intent and expected invariants.
 ---
 
 # Create or Update PR
@@ -57,6 +57,10 @@ Commit 2 description
 - If a commit body does not explain its intent and relevant invariants, use author context and its patch to write that explanation. Avoid repeating the opening summary.
 
 ### PR Stacks
+
+When the user asks to create a PR stack in a GitHub repository, also create a native GitHub stack. Set each upper PR's base to the head branch of the PR below it. After the PRs are open, reuse a matching native stack or create one with `POST /repos/{owner}/{repo}/stacks`, passing the PR numbers from base to tip in `pull_requests`. You can also link the PRs on the GitHub website. [GitHub Stacks API](https://docs.github.com/en/rest/pulls/stacks#create-a-pull-request-stack) · [GitHub website workflow](https://docs.github.com/en/pull-requests/how-tos/create-pull-requests/creating-stacked-pull-requests#turning-existing-pull-requests-into-a-stack)
+
+Verify the native stack's membership and order on GitHub before reporting completion. If GitHub blocks creation, report the blocker.
 
 When creating or updating a PR stack, apply these rules to every PR:
 
