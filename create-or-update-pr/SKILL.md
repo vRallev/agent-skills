@@ -12,9 +12,9 @@ IMPORTANT: Push and open PRs or deltas as fast as possible. Defer local checks a
 ## Workflow
 
 1. Confirm the repository, branch, upstream, and working-tree state with `git status --short --branch --untracked-files=all`.
-2. Confirm whether the branch is pushed. If pushing requires a remote choice or a rewrite of remote history, ask before pushing. Otherwise, push the branch if needed.
-3. Determine the PR base branch from the existing PR, the user request, or the repository default branch.
-4. Check for an open PR for the current branch. Read its title and body to retain applicable author-provided intent and invariants.
+2. Check for an open PR for the current branch. If one exists, check whether it belongs to a stack. Read its title and body to retain applicable author-provided intent and invariants.
+3. Confirm whether the branch is pushed. If pushing requires a remote choice or a rewrite of the current branch's published history, ask before pushing. If the push changes a branch in an existing stack, follow [PR Stacks](#pr-stacks). Otherwise, push the branch if needed.
+4. Determine the PR base branch from the existing PR, the user request, or the repository default branch.
 5. Inspect the commit range from the base branch to `HEAD`, including each commit subject, body, and patch. Use the conversation and relevant code to understand the intended behavior and constraints.
 6. Build the PR title and body from the commits and author context using the rules below.
 7. If an open PR exists, update its title and body. Preserve its draft or ready-for-review state. Do not convert a ready PR to draft. Do not mark a draft PR ready for review.
@@ -57,6 +57,8 @@ Commit 2 description
 - If a commit body does not explain its intent and relevant invariants, use author context and its patch to write that explanation. Avoid repeating the opening summary.
 
 ### PR Stacks
+
+Before publishing a head change in an existing stack, follow the `PR stacks` section of `$address-pr-comments` from discovery through verification. Apply it to pushes for local-check fixes too. Rebase and publish affected descendants within the user's branch and push limits.
 
 When the user asks to create a PR stack in a GitHub repository, also create a native GitHub stack. Set each upper PR's base to the head branch of the PR below it. After the PRs are open, reuse a matching native stack or create one with `POST /repos/{owner}/{repo}/stacks`, passing the PR numbers from base to tip in `pull_requests`. You can also link the PRs on the GitHub website. [GitHub Stacks API](https://docs.github.com/en/rest/pulls/stacks#create-a-pull-request-stack) · [GitHub website workflow](https://docs.github.com/en/pull-requests/how-tos/create-pull-requests/creating-stacked-pull-requests#turning-existing-pull-requests-into-a-stack)
 

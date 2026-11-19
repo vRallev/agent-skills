@@ -8,6 +8,10 @@ When writing Kotlin, the personal `kotlin-conventions` skill takes precedence ov
 
 Whenever posting or editing a GitHub issue comment, pull-request comment, review body, inline review comment, or reply, use the personal `github-comments` skill. This includes new findings, not only responses to existing comments.
 
+# PR stacks
+
+When a change moves the head of a PR in an existing stack, rebase affected descendants onto their updated parents from base to tip. Preserve each PR's base branch and intended changes. Verify that each rebased branch contains its parent's current head. Respect branch and push limits. Report any descendants that still need a rebase.
+
 # Documentation style
 
 For documentation changes, minimize added and changed words while still achieving the goal. Before finishing, review the diff and remove unnecessary words and repetition. Code snippets are exempt.

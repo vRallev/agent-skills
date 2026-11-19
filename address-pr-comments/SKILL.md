@@ -12,8 +12,8 @@ Use `$github-comments` for every GitHub comment or review write.
 ## Workflow
 
 1. Confirm the working tree state. Preserve unrelated local changes.
-2. Find the requested open PRs or the open PR for the current branch. Prefer GitHub connector tools. Use `gh` only if connector coverage is insufficient and authentication permits it. For stacked PRs, follow [PR stacks](#pr-stacks) from discovery through publication.
-3. Fetch all inline review conversations, including each thread's resolved state and all comments. If available, fetch PR-level comments too.
+2. Find the requested open PRs or the open PR for the current branch. Prefer GitHub connector tools. Use `gh` only if connector coverage is insufficient and authentication permits it. For stacked PRs, follow [PR stacks](#pr-stacks) from discovery through publication. Rebase and publish affected descendants within the user's branch limits.
+3. On the requested PRs, fetch all inline review conversations, including each thread's resolved state and all comments. If available, fetch PR-level comments too.
 4. Consider only conversations whose last comment is not a previous agent response beginning with `**Ralf-AI:**`.
 5. Classify each considered conversation:
    - First assess the comment against the PR description, current patch, surrounding code, and intended direction.
@@ -22,9 +22,10 @@ Use `$github-comments` for every GitHub comment or review write.
    - **Inapplicable or misaligned request:** If the request rests on an incorrect assumption, does not apply, exceeds the PR's scope, or conflicts with its intent, reject it without changing code. Reply politely with the concrete reason.
    - **Ambiguous, conflicting, or risky request:** Ask the user only if you cannot confidently accept or reject the request, or if either choice would materially change the PR's intent.
 6. For each accepted request, validate the focused scope. Then use `$commit-changes` to append one new commit dedicated to that request.
+   - If the PR needs a descendant rebase, rebase it before appending its review fixes.
    - Follow the skill's Markdown rules. Put backticks around code references, file paths, and Gradle module or task paths such as `:abc:def`.
    - Do not insert line breaks to limit line length. Keep each prose paragraph or list item on one line. Preserve intentional Markdown structure. Let the rendering tool wrap text.
-7. Push the new commits. For a standalone PR, use a fast-forward push.
+7. Push the new commits. Use fast-forward pushes for branches that did not need a descendant rebase.
 8. After pushing, reply to each considered conversation:
    - For a fix, state what changed and include the commit SHA.
    - For a question, answer directly.
@@ -35,12 +36,12 @@ Use `$github-comments` for every GitHub comment or review write.
 
 ## PR stacks
 
-1. Verify the stack order from live PR base and head refs. Use PR descriptions as discovery hints. Before editing, fetch and record the original remote heads. Verify each descendant's original parent boundary.
-2. Review feedback only on the requested PRs. The request also authorizes rebasing affected descendants within the user's branch limits. If those limits cut off the restack, report which descendants still need a rebase.
-3. Work from base to tip. When a parent head changes, use `git rebase --onto <new-parent> <old-parent>` to replay only the descendant's own commits. Append that PR's review fixes after its rebase.
-4. Before pushing, verify that each new parent head is an ancestor of its child. Check each PR's commit range with `git range-diff` to confirm it preserves the original changes and includes the intended fixes.
-5. Push atomically when supported. Otherwise, push from base to tip and stop on the first failure. Keep each update a fast-forward except for descendants that needed rebasing. Use `--force-with-lease=<ref>:<old-sha>` with the recorded remote SHA for each updated ref. If a lease fails, refresh the stack and preserve the new remote work before retrying.
-6. Read back the published heads and base refs before replying. Cite the published fix SHAs.
+1. Verify the stack order from live PR base and head refs. Use PR descriptions as discovery hints. Before editing or publishing a branch change, fetch and record the original remote heads. Verify each descendant's original parent boundary.
+2. Respect the calling workflow's branch and push limits. If those limits prevent a full restack, report which descendants still need a rebase.
+3. Work from base to tip. When a parent head changes, use `git rebase --onto <new-parent> <old-parent>` to replay only the descendant's own commits.
+4. Before pushing, verify that each rebased child contains its new parent head. Use `git range-diff` to verify that each changed PR preserves its original changes and includes the intended edits. For a squash, compare the net changes across the old and new PR ranges.
+5. Push atomically when supported. Otherwise, push from base to tip and stop on the first failure. Keep updates fast-forward unless the calling workflow authorizes a rewrite. Use `--force-with-lease=<ref>:<old-sha>` with the recorded remote SHA for each updated ref. If a lease fails, refresh the stack and preserve the new remote work before retrying.
+6. After pushing, verify the published heads and base refs.
 
 ## Review Rules
 

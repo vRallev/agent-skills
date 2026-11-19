@@ -1,22 +1,21 @@
 ---
 name: ready-for-review
-description: Prepare the current pull request as one commit for review. Fetch the latest default branch, rebase, squash, update the commit message, and force-push safely. Match the PR title and description to the final commit. Resolve all review conversations and preserve the PR's draft status. Use when the user invokes ready-for-review or asks to finalize a pull request into a single review-ready commit.
+description: Prepare the current pull request as one commit for review. Rebase, squash, update the commit message, and force-push safely. Restack affected descendants. Match the PR title and description to the final commit. Resolve all review conversations and preserve the PR's draft status. Use when the user invokes ready-for-review or asks to finalize a pull request into a single review-ready commit.
 ---
 
 # Ready for Review
 
-Prepare the current feature branch and its PR for review. Invoking this skill explicitly authorizes you to rewrite the current PR branch history, update its title and description, and resolve its review conversations.
+Prepare the current feature branch and its PR for review. Invoking this skill authorizes rewriting the current PR branch, rebasing and publishing affected descendants within the user's branch and push limits, updating the current PR's title and description, and resolving its review conversations.
 
 ## Workflow
 
 1. Confirm the current repository, branch, upstream, and working-tree state. Before rewriting history, require a clean working tree. Do not run this workflow on `main`, `master`, or a detached `HEAD`.
 2. Find the open PR for the current local branch. Record whether it is a draft. Read its title and body to retain applicable author-provided intent and invariants for the commit rewrite. Prefer GitHub connector tools. If connector coverage is insufficient, use `gh`.
-3. Run `git fetch origin`.
+3. Run `git fetch origin`. Check whether the PR belongs to a stack. For a stacked PR, follow the `PR stacks` procedure in `$address-pr-comments` from discovery through verification.
 4. Choose the rebase target:
-   - If `refs/remotes/origin/main` exists, use `origin/main`.
-   - Otherwise, if `refs/remotes/origin/master` exists, use `origin/master`.
-   - If neither exists, stop. Report the blocker.
-5. Rebase the current feature branch onto the chosen remote base. If conflicts have a clear intended resolution, resolve them carefully. If the resolution is unclear, stop. Ask the user.
+   - For a stacked PR, use the fetched head of its current PR base branch.
+   - For a standalone PR, use `origin/main` if it exists. Otherwise, use `origin/master` if it exists. If neither exists, stop. Report the blocker.
+5. Rebase the current feature branch onto the chosen remote base. For a stacked PR, replay only the commits after its verified original base boundary. If conflicts have a clear intended resolution, resolve them carefully. If the resolution is unclear, stop. Ask the user.
 6. Find the merge base between the rebased branch and the chosen remote base. Count commits in `<base>..HEAD`.
 7. If more than one feature-branch commit exists, squash them into one:
    - Identify the oldest commit in `<base>..HEAD`.
@@ -30,13 +29,13 @@ Prepare the current feature branch and its PR for review. Invoking this skill ex
 9. Before pushing, confirm both conditions:
    - The branch contains exactly one commit over the chosen remote base.
    - The working tree is clean.
-10. Force-push the rewritten branch with lease protection:
+10. For a stacked PR, rebase affected descendants from base to tip. Publish and verify the changed heads with the `PR stacks` procedure. For a standalone PR, force-push the rewritten branch with lease protection:
 
 ```bash
 git push --force-with-lease origin HEAD:<current-branch>
 ```
 
-11. After the push succeeds, use `$create-or-update-pr` to update the existing PR from the final single commit. Apply this step on every run, even if the PR has a description or needed no squash:
+11. After the push succeeds, use `$create-or-update-pr` for the PR title and body update only. Use the final single commit on every run, even if the PR has a description or needed no squash:
    - Set the PR title to the final commit subject (`git log -1 --format=%s`).
    - Set the PR description to the final commit body (`git log -1 --format=%b`). Copy it verbatim. Preserve Markdown and intentional newlines. Do not keep the old description or write a separate summary.
    - Pass the exact text through structured GitHub connector arguments. If using `gh`, write the body to a temporary file. Pass it with `gh pr edit --body-file` to preserve newlines and prevent shell expansion.
@@ -52,9 +51,9 @@ git push --force-with-lease origin HEAD:<current-branch>
 
 ## Safety
 
-- Rewrite only the current feature branch associated with the open PR.
+- Preserve each PR's base branch. Report any descendants that still need a rebase.
 - Use `--force-with-lease`, never an unconditional force push.
 - Before the rebase and squash, require a clean working tree to preserve local work.
 - Preserve the PR's draft status. Never mark a draft PR ready for review.
 - A successful push alone does not complete this workflow. If the PR text update or read-back verification fails, report the pushed commit and remaining PR-text blocker. Do not claim completion.
-- If the branch has no open PR, conflicts are ambiguous, or the remote branch changed unexpectedly, stop. Do not guess.
+- If the branch has no open PR, conflicts are ambiguous, or the current PR's remote head changed unexpectedly, stop. Do not guess.
